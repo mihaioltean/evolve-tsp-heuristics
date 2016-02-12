@@ -70,7 +70,7 @@ struct s_graph{
 };
 
 //---------------------------------------------------------------------------
-struct code3{
+struct t_code3{
 	int op;				// either a variable, operator or constant; 
 	// variables are indexed from 0: 0,1,2,...; 
 	// constants are indexed from num_variables
@@ -78,15 +78,15 @@ struct code3{
 	int adr1, adr2;    // pointers to arguments
 };
 //---------------------------------------------------------------------------
-struct chromosome{
-	code3 *prg;        // the program - a string of genes
+struct t_chromosome{
+	t_code3 *prg;        // the program - a string of genes
 	double *constants; // an array of constants
 
 	double fitness;        // the fitness (or the error)	
 };
 //---------------------------------------------------------------------------
 struct s_parameters{
-	int code_length;             // number of instructions in a chromosome
+	int code_length;             // number of instructions in a t_chromosome
 	int num_generations;
 	int pop_size;                // population size
 	double mutation_probability, crossover_probability;
@@ -95,16 +95,16 @@ struct s_parameters{
 	double variables_probability, operators_probability, constants_probability;
 };
 //---------------------------------------------------------------------------
-void allocate_chromosome(chromosome &c, s_parameters &params)
+void allocate_t_chromosome(t_chromosome &c, s_parameters &params)
 {
-	c.prg = new code3[params.code_length];
+	c.prg = new t_code3[params.code_length];
 	if (params.num_constants)
 		c.constants = (double*)malloc(params.num_constants * sizeof(double));
 	else
 		c.constants = NULL;
 }
 //---------------------------------------------------------------------------
-void delete_chromosome(chromosome &c)
+void delete_t_chromosome(t_chromosome &c)
 {
 	if (c.prg) {
 		delete[] c.prg;
@@ -261,7 +261,7 @@ void delete_training_graphs(s_graph *&training_graphs, int num_training_graphs)
 	delete[] training_graphs;
 }
 //---------------------------------------------------------------------------
-void copy_individual(chromosome& dest, const chromosome& source, s_parameters &params)
+void copy_individual(t_chromosome& dest, const t_chromosome& source, s_parameters &params)
 {
 	for (int i = 0; i < params.code_length; i++)
 		dest.prg[i] = source.prg[i];
@@ -270,7 +270,7 @@ void copy_individual(chromosome& dest, const chromosome& source, s_parameters &p
 	dest.fitness = source.fitness;
 }
 //---------------------------------------------------------------------------
-void generate_random_chromosome(chromosome &a, s_parameters &params, int num_variables) // randomly initializes the individuals
+void generate_random_t_chromosome(t_chromosome &a, s_parameters &params, int num_variables) // randomly initializes the individuals
 {
 	// generate constants first
 	for (int c = 0; c < params.num_constants; c++)
@@ -303,7 +303,7 @@ void generate_random_chromosome(chromosome &a, s_parameters &params, int num_var
 }
 //---------------------------------------------------------------------------
 // evaluate Individual
-void mutation(chromosome &a, s_parameters params, int num_variables) // mutate the individual
+void mutation(t_chromosome &a, s_parameters params, int num_variables) // mutate the individual
 {
 	// mutate each symbol with the given probability
 	double p = rand() / (double)RAND_MAX;
@@ -341,7 +341,7 @@ void mutation(chromosome &a, s_parameters params, int num_variables) // mutate t
 	}
 }
 //---------------------------------------------------------------------------
-void one_cut_point_crossover(const chromosome &parent1, const chromosome &parent2, s_parameters &params, chromosome &offspring1, chromosome &offspring2)
+void one_cut_point_crossover(const t_chromosome &parent1, const t_chromosome &parent2, s_parameters &params, t_chromosome &offspring1, t_chromosome &offspring2)
 {
 	int cutting_pct = rand() % params.code_length;
 	for (int i = 0; i < cutting_pct; i++) {
@@ -366,7 +366,7 @@ void one_cut_point_crossover(const chromosome &parent1, const chromosome &parent
 	}
 }
 //---------------------------------------------------------------------------
-void uniform_crossover(const chromosome &parent1, const chromosome &parent2, s_parameters &params, chromosome &offspring1, chromosome &offspring2)
+void uniform_crossover(const t_chromosome &parent1, const t_chromosome &parent2, s_parameters &params, t_chromosome &offspring1, t_chromosome &offspring2)
 {
 	for (int i = 0; i < params.code_length; i++)
 		if (rand() % 2) {
@@ -392,18 +392,18 @@ void uniform_crossover(const chromosome &parent1, const chromosome &parent2, s_p
 //---------------------------------------------------------------------------
 int sort_function(const void *a, const void *b)
 {// comparator for quick sort
-	if (((chromosome *)a)->fitness > ((chromosome *)b)->fitness)
+	if (((t_chromosome *)a)->fitness > ((t_chromosome *)b)->fitness)
 		return 1;
 	else
-		if (((chromosome *)a)->fitness < ((chromosome *)b)->fitness)
+		if (((t_chromosome *)a)->fitness < ((t_chromosome *)b)->fitness)
 			return -1;
 		else
 			return 0;
 }
 //---------------------------------------------------------------------------
-void print_chromosome(chromosome& a, s_parameters &params, int num_variables)
+void print_t_chromosome(t_chromosome& a, s_parameters &params, int num_variables)
 {
-	printf("The chromosome is:\n");
+	printf("The t_chromosome is:\n");
 
 	for (int i = 0; i < params.num_constants; i++)
 		printf("constants[%d] = %lf\n", i, a.constants[i]);
@@ -420,7 +420,7 @@ void print_chromosome(chromosome& a, s_parameters &params, int num_variables)
 	printf("Fitness = %lf\n", a.fitness);
 }
 //---------------------------------------------------------------------------
-int tournament_selection(chromosome *pop, int pop_size, int tournament_size)     // Size is the size of the tournament
+int tournament_selection(t_chromosome *pop, int pop_size, int tournament_size)     // Size is the size of the tournament
 {
 	// tournament selection, 
 	// returns the best out of tournament_size 
@@ -434,30 +434,30 @@ int tournament_selection(chromosome *pop, int pop_size, int tournament_size)    
 	return p;
 }
 //---------------------------------------------------------------------------
-double evaluate(chromosome &a_chromosome, int code_length, int num_variables, double *vars_values, double *partial_values_array)
+double evaluate(t_chromosome &a_t_chromosome, int code_length, int num_variables, double *vars_values, double *partial_values_array)
 {
 	for (int i = 0; i < code_length; i++)
-		switch (a_chromosome.prg[i].op) {
+		switch (a_t_chromosome.prg[i].op) {
 		case -1:// +
-			partial_values_array[i] = partial_values_array[a_chromosome.prg[i].adr1] + partial_values_array[a_chromosome.prg[i].adr2];
+			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] + partial_values_array[a_t_chromosome.prg[i].adr2];
 			break;
 		case -2:// -
-			partial_values_array[i] = partial_values_array[a_chromosome.prg[i].adr1] - partial_values_array[a_chromosome.prg[i].adr2];
+			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] - partial_values_array[a_t_chromosome.prg[i].adr2];
 			break;
 		case -3:// *
-			partial_values_array[i] = partial_values_array[a_chromosome.prg[i].adr1] * partial_values_array[a_chromosome.prg[i].adr2];
+			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] * partial_values_array[a_t_chromosome.prg[i].adr2];
 			break;
 		case -4:// max
-			partial_values_array[i] = partial_values_array[a_chromosome.prg[i].adr1] > partial_values_array[a_chromosome.prg[i].adr2] ? partial_values_array[a_chromosome.prg[i].adr1] : partial_values_array[a_chromosome.prg[i].adr2];
+			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] > partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
 			break;
 		case -5:// min
-			partial_values_array[i] = partial_values_array[a_chromosome.prg[i].adr1] < partial_values_array[a_chromosome.prg[i].adr2] ? partial_values_array[a_chromosome.prg[i].adr1] : partial_values_array[a_chromosome.prg[i].adr2];
+			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
 			break;
 		default:
-			if (a_chromosome.prg[i].op < num_variables)
-				partial_values_array[i] = vars_values[a_chromosome.prg[i].op];
+			if (a_t_chromosome.prg[i].op < num_variables)
+				partial_values_array[i] = vars_values[a_t_chromosome.prg[i].op];
 			else
-				partial_values_array[i] = a_chromosome.constants[a_chromosome.prg[i].op - num_variables];
+				partial_values_array[i] = a_t_chromosome.constants[a_t_chromosome.prg[i].op - num_variables];
 	}
 
 	return partial_values_array[code_length - 1];
@@ -482,7 +482,7 @@ void compute_local_variables(s_graph &graph, int num_visited, int current_node, 
 	vars_values[average_distance_to_unvisited] /= (double)(graph.num_nodes - num_visited);
 }
 //--------------------------------------------------------------------
-void fitness(chromosome &Individ, int code_length, s_graph *training_graphs, int num_training_graphs, int num_variables, double * vars_values, double *partial_values_array)
+void fitness(t_chromosome &Individ, int code_length, s_graph *training_graphs, int num_training_graphs, int num_variables, double * vars_values, double *partial_values_array)
 {
 	// fitness is the sum of errors over all training graphs.
 	// error is the distance from the optimum
@@ -558,20 +558,20 @@ void start_steady_state_mep(s_parameters &params, s_graph *training_graphs, int 
 {
 
 	// allocate memory
-	chromosome *population;
-	population = new chromosome[params.pop_size];
+	t_chromosome *population;
+	population = new t_chromosome[params.pop_size];
 	for (int i = 0; i < params.pop_size; i++)
-		allocate_chromosome(population[i], params);
+		allocate_t_chromosome(population[i], params);
 
-	chromosome offspring1, offspring2;
-	allocate_chromosome(offspring1, params);
-	allocate_chromosome(offspring2, params);
+	t_chromosome offspring1, offspring2;
+	allocate_t_chromosome(offspring1, params);
+	allocate_t_chromosome(offspring2, params);
 
 	double *partial_values_array = new double[params.code_length];
 
 	// initialize
 	for (int i = 0; i < params.pop_size; i++) {
-		generate_random_chromosome(population[i], params, num_variables);
+		generate_random_t_chromosome(population[i], params, num_variables);
 		fitness(population[i], params.code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 	}
 	// sort ascendingly by fitness
@@ -611,15 +611,15 @@ void start_steady_state_mep(s_parameters &params, s_graph *training_graphs, int 
 		}
 		printf("generation %d, best fitness = %lf percent from optimum\n", g, population[0].fitness);
 	}
-	// print best chromosome
-	print_chromosome(population[0], params, num_variables);
+	// print best t_chromosome
+	print_t_chromosome(population[0], params, num_variables);
 
 	// free memory
-	delete_chromosome(offspring1);
-	delete_chromosome(offspring2);
+	delete_t_chromosome(offspring1);
+	delete_t_chromosome(offspring2);
 
 	for (int i = 0; i < params.pop_size; i++)
-		delete_chromosome(population[i]);
+		delete_t_chromosome(population[i]);
 	delete[] population;
 
 	delete_training_graphs(training_graphs, num_training_graphs);
