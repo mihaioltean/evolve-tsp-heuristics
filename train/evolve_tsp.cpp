@@ -85,7 +85,7 @@ struct t_chromosome{
 	double fitness;        // the fitness (or the error)	
 };
 //---------------------------------------------------------------------------
-struct s_parameters{
+struct t_parameters{
 	int code_length;             // number of instructions in a t_chromosome
 	int num_generations;
 	int pop_size;                // population size
@@ -95,7 +95,7 @@ struct s_parameters{
 	double variables_probability, operators_probability, constants_probability;
 };
 //---------------------------------------------------------------------------
-void allocate_t_chromosome(t_chromosome &c, s_parameters &params)
+void allocate_t_chromosome(t_chromosome &c, t_parameters &params)
 {
 	c.prg = new t_code3[params.code_length];
 	if (params.num_constants)
@@ -104,7 +104,7 @@ void allocate_t_chromosome(t_chromosome &c, s_parameters &params)
 		c.constants = NULL;
 }
 //---------------------------------------------------------------------------
-void delete_t_chromosome(t_chromosome &c)
+void delete_chromosome(t_chromosome &c)
 {
 	if (c.prg) {
 		delete[] c.prg;
@@ -261,7 +261,7 @@ void delete_training_graphs(s_graph *&training_graphs, int num_training_graphs)
 	delete[] training_graphs;
 }
 //---------------------------------------------------------------------------
-void copy_individual(t_chromosome& dest, const t_chromosome& source, s_parameters &params)
+void copy_individual(t_chromosome& dest, const t_chromosome& source, t_parameters &params)
 {
 	for (int i = 0; i < params.code_length; i++)
 		dest.prg[i] = source.prg[i];
@@ -270,7 +270,7 @@ void copy_individual(t_chromosome& dest, const t_chromosome& source, s_parameter
 	dest.fitness = source.fitness;
 }
 //---------------------------------------------------------------------------
-void generate_random_t_chromosome(t_chromosome &a, s_parameters &params, int num_variables) // randomly initializes the individuals
+void generate_random_t_chromosome(t_chromosome &a, t_parameters &params, int num_variables) // randomly initializes the individuals
 {
 	// generate constants first
 	for (int c = 0; c < params.num_constants; c++)
@@ -303,7 +303,7 @@ void generate_random_t_chromosome(t_chromosome &a, s_parameters &params, int num
 }
 //---------------------------------------------------------------------------
 // evaluate Individual
-void mutation(t_chromosome &a, s_parameters params, int num_variables) // mutate the individual
+void mutation(t_chromosome &a, t_parameters params, int num_variables) // mutate the individual
 {
 	// mutate each symbol with the given probability
 	double p = rand() / (double)RAND_MAX;
@@ -341,7 +341,7 @@ void mutation(t_chromosome &a, s_parameters params, int num_variables) // mutate
 	}
 }
 //---------------------------------------------------------------------------
-void one_cut_point_crossover(const t_chromosome &parent1, const t_chromosome &parent2, s_parameters &params, t_chromosome &offspring1, t_chromosome &offspring2)
+void one_cut_point_crossover(const t_chromosome &parent1, const t_chromosome &parent2, t_parameters &params, t_chromosome &offspring1, t_chromosome &offspring2)
 {
 	int cutting_pct = rand() % params.code_length;
 	for (int i = 0; i < cutting_pct; i++) {
@@ -366,7 +366,7 @@ void one_cut_point_crossover(const t_chromosome &parent1, const t_chromosome &pa
 	}
 }
 //---------------------------------------------------------------------------
-void uniform_crossover(const t_chromosome &parent1, const t_chromosome &parent2, s_parameters &params, t_chromosome &offspring1, t_chromosome &offspring2)
+void uniform_crossover(const t_chromosome &parent1, const t_chromosome &parent2, t_parameters &params, t_chromosome &offspring1, t_chromosome &offspring2)
 {
 	for (int i = 0; i < params.code_length; i++)
 		if (rand() % 2) {
@@ -401,7 +401,7 @@ int sort_function(const void *a, const void *b)
 			return 0;
 }
 //---------------------------------------------------------------------------
-void print_t_chromosome(t_chromosome& a, s_parameters &params, int num_variables)
+void print_t_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
 {
 	printf("The t_chromosome is:\n");
 
@@ -552,7 +552,7 @@ void fitness(t_chromosome &Individ, int code_length, s_graph *training_graphs, i
 	Individ.fitness /= (double)num_training_graphs; // average over the number of training graphs
 }
 //-----------------------------------------------------------------
-void start_steady_state_mep(s_parameters &params, s_graph *training_graphs, int &num_training_graphs, int num_variables, double* vars_values)       
+void start_steady_state_mep(t_parameters &params, s_graph *training_graphs, int &num_training_graphs, int num_variables, double* vars_values)       
 // Steady-State evolutionary algorithm
 // we work with one population and the newly created individuals will replace the existing worst individuals
 {
@@ -615,11 +615,11 @@ void start_steady_state_mep(s_parameters &params, s_graph *training_graphs, int 
 	print_t_chromosome(population[0], params, num_variables);
 
 	// free memory
-	delete_t_chromosome(offspring1);
-	delete_t_chromosome(offspring2);
+	delete_chromosome(offspring1);
+	delete_chromosome(offspring2);
 
 	for (int i = 0; i < params.pop_size; i++)
-		delete_t_chromosome(population[i]);
+		delete_chromosome(population[i]);
 	delete[] population;
 
 	delete_training_graphs(training_graphs, num_training_graphs);
@@ -648,7 +648,7 @@ void compute_global_variables(s_graph *training_graphs, int num_training_graphs)
 //--------------------------------------------------------------------
 int main(void)
 {
-	s_parameters params;
+	t_parameters params;
 
 	params.pop_size = 50;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
