@@ -88,14 +88,14 @@ struct t_chromosome{
 struct t_parameters{
 	int code_length;             // number of instructions in a t_chromosome
 	int num_generations;
-	int pop_size;                // population size
-	double mutation_probability, crossover_probability;
+	int pop_size;
+double mutation_probability, crossover_probability;
 	int num_constants;
 	double constants_min, constants_max;   // the array for constants
 	double variables_probability, operators_probability, constants_probability;
 };
 //---------------------------------------------------------------------------
-void allocate_t_chromosome(t_chromosome &c, t_parameters &params)
+void allocate_chromosome(t_chromosome &c, t_parameters &params)
 {
 	c.prg = new t_code3[params.code_length];
 	if (params.num_constants)
@@ -270,7 +270,7 @@ void copy_individual(t_chromosome& dest, const t_chromosome& source, t_parameter
 	dest.fitness = source.fitness;
 }
 //---------------------------------------------------------------------------
-void generate_random_t_chromosome(t_chromosome &a, t_parameters &params, int num_variables) // randomly initializes the individuals
+void generate_random_chromosome(t_chromosome &a, t_parameters &params, int num_variables) // randomly initializes the individuals
 {
 	// generate constants first
 	for (int c = 0; c < params.num_constants; c++)
@@ -401,7 +401,7 @@ int sort_function(const void *a, const void *b)
 			return 0;
 }
 //---------------------------------------------------------------------------
-void print_t_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
+void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
 {
 	printf("The t_chromosome is:\n");
 
@@ -460,7 +460,7 @@ double evaluate(t_chromosome &a_t_chromosome, int code_length, int num_variables
 				partial_values_array[i] = a_t_chromosome.constants[a_t_chromosome.prg[i].op - num_variables];
 	}
 
-	return partial_values_array[code_length - 1];
+	return partial_values_array[code_length - 1]; // last gene is the one providing the output
 }
 //---------------------------------------------------------------------------
 void compute_local_variables(s_graph &graph, int num_visited, int current_node, int *node_visited, double *vars_values)
@@ -482,7 +482,7 @@ void compute_local_variables(s_graph &graph, int num_visited, int current_node, 
 	vars_values[average_distance_to_unvisited] /= (double)(graph.num_nodes - num_visited);
 }
 //--------------------------------------------------------------------
-void fitness(t_chromosome &Individ, int code_length, s_graph *training_graphs, int num_training_graphs, int num_variables, double * vars_values, double *partial_values_array)
+void fitness(t_chromosome &individual, int code_length, s_graph *training_graphs, int num_training_graphs, int num_variables, double * vars_values, double *partial_values_array)
 {
 	// fitness is the sum of errors over all training graphs.
 	// error is the distance from the optimum
@@ -492,7 +492,7 @@ void fitness(t_chromosome &Individ, int code_length, s_graph *training_graphs, i
 	// we fill the "vars_values" array with this summarized information
 	// a function having vars_values as a parameter will be evolved
 
-	Individ.fitness = 0;
+	individual.fitness = 0;
 
 	for (int k = 0; k < num_training_graphs; k++) {
 
@@ -528,7 +528,7 @@ void fitness(t_chromosome &Individ, int code_length, s_graph *training_graphs, i
 				// consider each unvisited node
 				if (!node_visited[nod]) {// not visited yet
 					vars_values[distance_to_next_node] = training_graphs[k].distance[tsp_path[count_nodes - 1]][nod];
-					double eval = evaluate(Individ, code_length, num_variables, vars_values, partial_values_array);
+					double eval = evaluate(individual, code_length, num_variables, vars_values, partial_values_array);
 					if (eval < min_eval) {
 						best_node = nod; // keep the one with minimal evaluation
 						min_eval = eval;
@@ -543,13 +543,13 @@ void fitness(t_chromosome &Individ, int code_length, s_graph *training_graphs, i
 		}
 		// connect the last with the first in the path
 		path_length += training_graphs[k].distance[tsp_path[count_nodes - 1]][tsp_path[0]];
-		Individ.fitness += (path_length - training_graphs[k].optimal_length) / training_graphs[k].optimal_length * 100;
+		individual.fitness += (path_length - training_graphs[k].optimal_length) / training_graphs[k].optimal_length * 100;
 		// keep it in percent from the optimal solution, otherwise we have scalling problems
 
 		delete[] tsp_path;
 		delete[] node_visited;
 	}
-	Individ.fitness /= (double)num_training_graphs; // average over the number of training graphs
+	individual.fitness /= (double)num_training_graphs; // average over the number of training graphs
 }
 //-----------------------------------------------------------------
 void start_steady_state_mep(t_parameters &params, s_graph *training_graphs, int &num_training_graphs, int num_variables, double* vars_values)       
@@ -558,20 +558,21 @@ void start_steady_state_mep(t_parameters &params, s_graph *training_graphs, int 
 {
 
 	// allocate memory
+
 	t_chromosome *population;
 	population = new t_chromosome[params.pop_size];
 	for (int i = 0; i < params.pop_size; i++)
-		allocate_t_chromosome(population[i], params);
+		allocate_chromosome(population[i], params);
 
 	t_chromosome offspring1, offspring2;
-	allocate_t_chromosome(offspring1, params);
-	allocate_t_chromosome(offspring2, params);
+	allocate_chromosome(offspring1, params);
+	allocate_chromosome(offspring2, params);
 
 	double *partial_values_array = new double[params.code_length];
 
 	// initialize
 	for (int i = 0; i < params.pop_size; i++) {
-		generate_random_t_chromosome(population[i], params, num_variables);
+		generate_random_chromosome(population[i], params, num_variables);
 		fitness(population[i], params.code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 	}
 	// sort ascendingly by fitness
@@ -612,7 +613,7 @@ void start_steady_state_mep(t_parameters &params, s_graph *training_graphs, int 
 		printf("generation %d, best fitness = %lf percent from optimum\n", g, population[0].fitness);
 	}
 	// print best t_chromosome
-	print_t_chromosome(population[0], params, num_variables);
+	print_chromosome(population[0], params, num_variables);
 
 	// free memory
 	delete_chromosome(offspring1);
