@@ -697,12 +697,12 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	}
 
 	// find the best individual from the entire population
-	int best_individual_index = 0; // the index of the subpopulation containing the best invidual
+	int best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
 	for (int p = 1; p < params.num_sub_populations; p++)
-		if (sub_populations[p][0].fitness < sub_populations[best_individual_index][0].fitness)
-			best_individual_index = p;
+		if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
+			best_individual_subpop_index = p;
 
-	printf("generation %d, best fitness = %lf\n", 0, sub_populations[best_individual_index][0].fitness);
+	printf("generation %d, best fitness = %lf\n", 0, sub_populations[best_individual_subpop_index][0].fitness);
 	
 	// evolve for a fixed number of generations
 	for (int generation = 1; generation < params.num_generations; generation++) { // for each generation
@@ -717,11 +717,11 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 		}
 
 		// find the best individual
-		best_individual_index = 0; // the index of the subpopulation containing the best invidual
+		best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
 		for (int p = 1; p < params.num_sub_populations; p++)
-			if (sub_populations[p][0].fitness < sub_populations[best_individual_index][0].fitness)
-				best_individual_index = p;
-		printf("generation %d, best fitness = %lf\n", generation, sub_populations[best_individual_index][0].fitness);
+			if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
+				best_individual_subpop_index = p;
+		printf("generation %d, best fitness = %lf\n", generation, sub_populations[best_individual_subpop_index][0].fitness);
 
 		// now copy one individual from one population to the next one.
 		// the copied invidual will replace the worst in the next one (if is better)
@@ -741,7 +741,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 
 		// print best t_chromosome
 
-	print_chromosome(sub_populations[best_individual_index][0], params, num_variables);
+	print_chromosome(sub_populations[best_individual_subpop_index][0], params, num_variables);
 	// free memory
 
 	for (int p = 0; p < params.num_sub_populations; p++) {
