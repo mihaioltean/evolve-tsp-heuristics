@@ -140,7 +140,7 @@ bool read_training_data(s_graph *&training_graphs, int &num_training_graphs)
 
 	int k = 0; // count the graphs
 	{
-		FILE* f = fopen("bayg29.tsp", "r");
+		FILE* f = fopen("data\\bayg29.tsp", "r");
 		if (!f)
 			return false;
 
@@ -166,7 +166,7 @@ bool read_training_data(s_graph *&training_graphs, int &num_training_graphs)
 	}
 	{
 		k++;
-		FILE* f = fopen("a280.tsp", "r");
+		FILE* f = fopen("data\\a280.tsp", "r");
 		if (!f)
 			return false;
 
@@ -194,7 +194,7 @@ bool read_training_data(s_graph *&training_graphs, int &num_training_graphs)
 	}
 	{
 		k++;
-		FILE* f = fopen("berlin52.tsp", "r");
+		FILE* f = fopen("data\\berlin52.tsp", "r");
 		if (!f)
 			return false;
 
@@ -222,7 +222,7 @@ bool read_training_data(s_graph *&training_graphs, int &num_training_graphs)
 	}
 	{
 		k++;
-		FILE* f = fopen("bier127.tsp", "r");
+		FILE* f = fopen("data\\bier127.tsp", "r");
 		if (!f)
 			return false;
 
