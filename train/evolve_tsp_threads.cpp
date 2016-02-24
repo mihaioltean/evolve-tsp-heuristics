@@ -66,7 +66,7 @@ void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
     
     printf("Fitness = %lf\n", a.fitness);
 }
-
+//---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_training_graphs, int num_variables,  int num_threads)
                         // num threads.
@@ -89,6 +89,8 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	double** vars_values = new double*[num_threads];
 	for (int t = 0; t < num_threads; t++)
 		vars_values[t] = new double[num_variables];
+
+    //---------------------------------------------------------------------------
 
 	// an array of threads. Each sub population is evolved by a thread
 	std::thread **mep_threads = new std::thread*[num_threads];
@@ -113,6 +115,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 		mep_threads[t]->join(); // wait for all threads to execute
 		delete mep_threads[t];
 	}
+    //---------------------------------------------------------------------------
 
 	// find the best individual from the entire population
 	int best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
@@ -122,10 +125,16 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 
 	printf("generation %d, best fitness = %lf\n", 0, sub_populations[best_individual_subpop_index][0].fitness);
 	
+    //---------------------------------------------------------------------------
+    //---------------------------------------------------------------------------
+
 	// evolve for a fixed number of generations
 	for (int generation = 1; generation < params.num_generations; generation++) { // for each generation
 
 		current_subpop_index = 0;
+        
+        //---------------------------------------------------------------------------
+
 		for (int t = 0; t < num_threads; t++)
 			mep_threads[t] = new std::thread(evolve_one_subpopulation, &current_subpop_index, &mutex, sub_populations, generation, &params, training_graphs, num_training_graphs, num_variables, vars_values[t]);
 
@@ -133,6 +142,8 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			mep_threads[t]->join();
 			delete mep_threads[t];
 		}
+        //---------------------------------------------------------------------------
+
 
 		// find the best individual
 		best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
@@ -154,6 +165,9 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			}
 		}
 	}
+    //---------------------------------------------------------------------------
+    //---------------------------------------------------------------------------
+
 
 	delete[] mep_threads;
 
@@ -196,7 +210,7 @@ void init_params(t_parameters& params){
 
 
 }
-
+//--------------------------------------------------------------------
 
 bool read_graphs(t_graph *&training_graphs, int& num_training_graphs){
     
@@ -215,9 +229,6 @@ bool read_graphs(t_graph *&training_graphs, int& num_training_graphs){
         return 0;
     }
 
-    
-  
-    
     strcpy(file_name,"data//a280.tsp");
     
     if (!read_training_data_coordinates(training_graphs, num_training_graphs, file_name)) {
@@ -225,9 +236,7 @@ bool read_graphs(t_graph *&training_graphs, int& num_training_graphs){
         getchar();
         return 0;
     }
-    
-    
-    
+ 
     strcpy(file_name,"data//berlin52.tsp");
     
     if (!read_training_data_coordinates(training_graphs, num_training_graphs, file_name)) {
@@ -235,8 +244,6 @@ bool read_graphs(t_graph *&training_graphs, int& num_training_graphs){
         getchar();
         return 0;
     }
-    
-    
     
     strcpy(file_name,"data//bier127.tsp");
     

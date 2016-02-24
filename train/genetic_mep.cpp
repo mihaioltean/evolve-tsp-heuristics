@@ -289,19 +289,37 @@ void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs
     }
     individual.fitness /= (double)num_training_graphs; // average over the number of training graphs
 }
+
+//-----------------------------------------------------------------
+int nextPopulation(int *current_subpop_index, std::mutex* mutex){
+    std::lock_guard<std::mutex> lock(*mutex);
+    int pop_index = *current_subpop_index;
+    (*current_subpop_index)++;
+    return pop_index;
+}
+
 //-----------------------------------------------------------------
 
 void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_chromosome ** sub_populations, int generation_index, t_parameters *params, t_graph *training_graphs, int num_training_graphs, int num_variables, double* vars_values)
 
 
 {
+    
     int pop_index = 0;
     while (*current_subpop_index < params->num_sub_populations) {// still more subpopulations to evolve?
         
+        /*
+        {
+        //
         while (!mutex->try_lock()) {}// create a lock so that multiple threads will not evolve the same sub population
+        
         pop_index = *current_subpop_index;
         (*current_subpop_index)++;
+       
         mutex->unlock();
+        }*/
+        
+        pop_index = nextPopulation(current_subpop_index, mutex);
         
         // pop_index is the index of the subpopulation evolved by the current thread
         
