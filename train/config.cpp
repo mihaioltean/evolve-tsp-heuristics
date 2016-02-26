@@ -8,7 +8,7 @@
 
 #include "config.hpp"
 
-char operators_string[num_operators][10] = { "+", "-", "*", "min", "max" };
+//char operators_string[num_operators][10] = { "+", "-", "*", "min", "max" };
 
 //---------------------------------------------------------------------------
 void allocate_chromosome(t_chromosome &c, t_parameters &params)
