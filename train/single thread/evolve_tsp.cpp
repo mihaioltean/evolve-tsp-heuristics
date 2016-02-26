@@ -680,8 +680,8 @@ int main(void)
 	params.constants_probability = 1 - params.variables_probability - params.operators_probability; // sum of variables_prob + operators_prob + constants_prob MUST BE 1 !
 
 	params.num_constants = 3;                       // use 3 constants from -1 ... +1 interval
-	params.constants_min = -1;
-	params.constants_max = 1;
+	params.constants_min = -10;
+	params.constants_max = 10;
 
 	s_graph *training_graphs = NULL;
 	int num_training_graphs = 0;
