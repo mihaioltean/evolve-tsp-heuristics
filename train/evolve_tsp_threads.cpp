@@ -50,6 +50,8 @@
 //---------------------------------------------------------------------------
 void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
 {
+	char operators_string[num_operators][10] = { "+", "-", "*", "min", "max", "ifalzbc", "ifalbcd" };
+
     printf("The t_chromosome is:\n");
     
     for (int i = 0; i < params.num_constants; i++)
@@ -57,7 +59,7 @@ void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
     
     for (int i = 0; i < params.code_length; i++)
         if (a.prg[i].op < 0)
-            printf("%d: %s %d %d\n", i, operators_string[abs(a.prg[i].op) - 1], a.prg[i].adr1, a.prg[i].adr2);
+			printf("%d: %s %d %d\n", i, operators_string[abs(a.prg[i].op) - 1], a.prg[i].adr1, a.prg[i].adr2, a.prg[i].adr3, a.prg[i].adr4);
         else
             if (a.prg[i].op < num_variables)
                 printf("%d: inputs[%d]\n", i, a.prg[i].op);
@@ -193,10 +195,10 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 void init_params(t_parameters& params){
 
     params.num_sub_populations = 4;
-    params.sub_population_size = 50;						    // the number of individuals in population  (must be an even number!)
+    params.sub_population_size = 500;						    // the number of individuals in population  (must be an even number!)
     params.code_length = 50;
-    params.num_generations = 100;					// the number of generations
-    params.mutation_probability = 0.1;              // mutation probability
+    params.num_generations = 1000;					// the number of generations
+    params.mutation_probability = 0.01;              // mutation probability
     params.crossover_probability = 0.9;             // crossover probability
     
     params.variables_probability = 0.4;
@@ -204,8 +206,8 @@ void init_params(t_parameters& params){
     params.constants_probability = 1 - params.variables_probability - params.operators_probability; // sum of variables_prob + operators_prob + constants_prob MUST BE 1 !
     
     params.num_constants = 3; // use 3 constants from -1 ... +1 interval
-    params.constants_min = -1;
-    params.constants_max = 1;
+    params.constants_min = -10;
+    params.constants_max = 10;
     
 
 

@@ -18,14 +18,18 @@
 #include <mutex>
 #include <float.h>
 
-#define num_operators 6
+#define num_operators 7
 
 // +   -1
 // -   -2
 // *   -3
-// /   -4
+// max   -4
+// min   -5
+// ifalzbc - 6
+// ifalbcd - 7
 
-extern char operators_string[num_operators][10];
+
+
 
 // variables
 // some indecses in the variables array
@@ -57,7 +61,7 @@ struct t_code3{
     // variables are indexed from 0: 0,1,2,...;
     // constants are indexed from num_variables
     // operators are -1, -2, -3...
-    int adr1, adr2;    // pointers to arguments
+    int adr1, adr2, adr3, adr4;    // pointers to arguments
 };
 //---------------------------------------------------------------------------
 struct t_chromosome{

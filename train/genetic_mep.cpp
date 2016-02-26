@@ -50,6 +50,8 @@ void generate_random_chromosome(t_chromosome &a, t_parameters &params, int num_v
         
         a.prg[i].adr1 = rand() % i;
         a.prg[i].adr2 = rand() % i;
+		a.prg[i].adr3 = rand() % i;
+		a.prg[i].adr4 = rand() % i;
     }
 }
 //---------------------------------------------------------------------------
@@ -90,7 +92,15 @@ void mutation(t_chromosome &a_chromosome, t_parameters params, int num_variables
         p = rand() / (double)RAND_MAX;      // mutate the second address   (adr2)
         if (p < params.mutation_probability)
             a_chromosome.prg[i].adr2 = rand() % i;
-    }
+
+		p = rand() / (double)RAND_MAX;      // mutate the second address   (adr3)
+		if (p < params.mutation_probability)
+			a_chromosome.prg[i].adr3 = rand() % i;
+	
+		p = rand() / (double)RAND_MAX;      // mutate the second address   (adr4)
+		if (p < params.mutation_probability)
+			a_chromosome.prg[i].adr4 = rand() % i;
+	}
     // mutate the constants
     for (int c = 0; c < params.num_constants; c++) {
         p = rand() / (double)RAND_MAX;
@@ -190,6 +200,12 @@ double evaluate(t_chromosome &a_t_chromosome, int code_length, int num_variables
             case -5:// min
                 partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
                 break;
+			case -6:// ifalzbc
+				partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < 0 ? partial_values_array[a_t_chromosome.prg[i].adr2] : partial_values_array[a_t_chromosome.prg[i].adr3];
+				break;
+			case -7:// ifalbcd
+				partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr3] : partial_values_array[a_t_chromosome.prg[i].adr4];
+				break;
             default:
                 if (a_t_chromosome.prg[i].op < num_variables)
                     partial_values_array[i] = vars_values[a_t_chromosome.prg[i].op];
