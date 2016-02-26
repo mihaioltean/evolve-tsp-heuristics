@@ -37,15 +37,17 @@
 #include <string.h>
 #include <float.h>
 
-#define num_operators 5
+#define num_operators 7
 
 // +   -1
 // -   -2
 // *   -3
 // max   -4
 // min   -5
+// ifalzbc
+// ifalbcd
 
-char operators_string[num_operators][10] = { "+", "-", "*", "min", "max" };
+char operators_string[num_operators][10] = { "+", "-", "*", "min", "max", "ifalzbc", "ifalbcd"};
 
 // variables
 // some indecses in the variables array
@@ -75,7 +77,7 @@ struct t_code3{
 	// variables are indexed from 0: 0,1,2,...; 
 	// constants are indexed from num_variables
 	// operators are -1, -2, -3...
-	int adr1, adr2;    // pointers to arguments
+	int adr1, adr2, adr3, adr4;    // pointers to arguments
 };
 //---------------------------------------------------------------------------
 struct t_chromosome{
@@ -299,6 +301,8 @@ void generate_random_chromosome(t_chromosome &a, t_parameters &params, int num_v
 
 		a.prg[i].adr1 = rand() % i;
 		a.prg[i].adr2 = rand() % i;
+		a.prg[i].adr3 = rand() % i;
+		a.prg[i].adr4 = rand() % i;
 	}
 }
 //---------------------------------------------------------------------------
@@ -338,6 +342,14 @@ void mutation(t_chromosome &a, t_parameters params, int num_variables) // mutate
 		p = rand() / (double)RAND_MAX;      // mutate the second address   (adr2)
 		if (p < params.mutation_probability)
 			a.prg[i].adr2 = rand() % i;
+
+		p = rand() / (double)RAND_MAX;      // mutate the 3rd address   (adr3)
+		if (p < params.mutation_probability)
+			a.prg[i].adr3 = rand() % i;
+
+		p = rand() / (double)RAND_MAX;      // mutate the 4th address   (adr4)
+		if (p < params.mutation_probability)
+			a.prg[i].adr4 = rand() % i;
 	}
 }
 //---------------------------------------------------------------------------
@@ -410,7 +422,7 @@ void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
 
 	for (int i = 0; i < params.code_length; i++)
 		if (a.prg[i].op < 0)
-			printf("%d: %s %d %d\n", i, operators_string[abs(a.prg[i].op) - 1], a.prg[i].adr1, a.prg[i].adr2);
+			printf("%d: %s %d %d\n", i, operators_string[abs(a.prg[i].op) - 1], a.prg[i].adr1, a.prg[i].adr2, a.prg[i].adr3, a.prg[i].adr4);
 		else
 			if (a.prg[i].op < num_variables)
 				printf("%d: inputs[%d]\n", i, a.prg[i].op);
@@ -452,6 +464,12 @@ double evaluate(t_chromosome &a_t_chromosome, int code_length, int num_variables
 			break;
 		case -5:// min
 			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
+			break;
+		case -6:// ifalzbc
+			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < 0 ? partial_values_array[a_t_chromosome.prg[i].adr2] : partial_values_array[a_t_chromosome.prg[i].adr3];
+			break;
+		case -7:// ifalbcd
+			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr3] : partial_values_array[a_t_chromosome.prg[i].adr4];
 			break;
 		default:
 			if (a_t_chromosome.prg[i].op < num_variables)
@@ -651,17 +669,17 @@ int main(void)
 {
 	t_parameters params;
 
-	params.pop_size = 50;						    // the number of individuals in population  (must be an even number!)
+	params.pop_size = 500;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 100;					// the number of generations
-	params.mutation_probability = 0.01;              // mutation probability
+	params.num_generations = 10000;					// the number of generations
+	params.mutation_probability = 0.05;             // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
 	params.variables_probability = 0.4;
 	params.operators_probability = 0.5;
 	params.constants_probability = 1 - params.variables_probability - params.operators_probability; // sum of variables_prob + operators_prob + constants_prob MUST BE 1 !
 
-	params.num_constants = 3; // use 3 constants from -1 ... +1 interval
+	params.num_constants = 3;                       // use 3 constants from -1 ... +1 interval
 	params.constants_min = -1;
 	params.constants_max = 1;
 
