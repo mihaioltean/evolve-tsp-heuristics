@@ -861,15 +861,9 @@ int main(int argc, char* argv[])
 
 	compute_global_variables(training_graphs, num_training_graphs);
 
-
 	int num_variables = 10;
 
-
 	int current_proc_id = 0;
-
-
-	srand(1); // if you want to make a 
-
 
 	int num_procs;
 #ifdef USE_MPI
@@ -879,6 +873,7 @@ int main(int argc, char* argv[])
 	MPI_Comm_rank(MPI_COMM_WORLD, &current_proc_id);
 #endif
 
+	srand(current_proc_id); // we run each process with a different seed
 
 
 	printf("Evolving...\n");
