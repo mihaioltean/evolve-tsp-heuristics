@@ -773,16 +773,22 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 
 		// here I have to copy few individuals from one process to another process
 		for (int i = 0; i < 1; i++) {
-			int sub_population_index = rand() % params.num_sub_populations;
+			int source_sub_population_index = rand() % params.num_sub_populations;
 			int chromosome_index = rand() % params.sub_population_size;
 			int tag;
 
-			sub_populations[sub_population_index][chromosome_index].to_string(s_dest, params.code_length, params.num_constants);
+			sub_populations[source_sub_population_index][chromosome_index].to_string(s_dest, params.code_length, params.num_constants);
 			MPI_Send((void*)s_dest, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD);
 
 			MPI_Status status;
 			MPI_Recv(s_source, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
 			receive_chromosome.from_string(s_source, params.code_length, params.num_constants);
+
+			int dest_sub_population_index = rand() % params.num_sub_populations;
+			if (receive_chromosome.fitness < sub_populations[dest_sub_population_index][params.sub_population_size - 1].fitness) {
+				copy_individual(sub_populations[dest_sub_population_index][params.sub_population_size - 1], receive_chromosome, params);
+				qsort((void *)sub_populations[dest_sub_population_index], params.sub_population_size, sizeof(sub_populations[0][0]), sort_function);
+			}
 		}
 	}
 
