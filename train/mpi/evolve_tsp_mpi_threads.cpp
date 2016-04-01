@@ -647,61 +647,62 @@ void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_ch
 		mutex->unlock();
 
 		// pop_index is the index of the subpopulation evolved by the current thread
+		if (pop_index < params->num_sub_populations) {
+			t_chromosome *a_sub_population = sub_populations[pop_index];
 
-		t_chromosome *a_sub_population = sub_populations[pop_index];
+			t_chromosome offspring1, offspring2;
+			allocate_chromosome(offspring1, *params);
+			allocate_chromosome(offspring2, *params);
 
-		t_chromosome offspring1, offspring2;
-		allocate_chromosome(offspring1, *params);
-		allocate_chromosome(offspring2, *params);
+			double *partial_values_array = new double[params->code_length];
 
-		double *partial_values_array = new double[params->code_length];
+			if (generation_index == 0) {
+				for (int i = 0; i < params->sub_population_size; i++) {
+					generate_random_chromosome(a_sub_population[i], *params, num_variables);
 
-		if (generation_index == 0) {
-			for (int i = 0; i < params->sub_population_size; i++) {
-				generate_random_chromosome(a_sub_population[i], *params, num_variables);
-				
-				fitness(a_sub_population[i], params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+					fitness(a_sub_population[i], params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 
+				}
+				// sort ascendingly by fitness inside this population
+				qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
 			}
-			// sort ascendingly by fitness inside this population
-			qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
+			else // next generations
+				for (int k = 0; k < params->sub_population_size; k += 2) {
+					// we increase by 2 because at each step we create 2 offspring
+
+					// choose the parents using binary tournament
+					int r1 = tournament_selection(a_sub_population, params->sub_population_size, 2);
+					int r2 = tournament_selection(a_sub_population, params->sub_population_size, 2);
+					// crossover
+					double p_0_1 = rand() / double(RAND_MAX); // a random number between 0 and 1
+					if (p_0_1 < params->crossover_probability)
+						one_cut_point_crossover(a_sub_population[r1], a_sub_population[r2], *params, offspring1, offspring2);
+					else {// no crossover so the offspring are a copy of the parents
+						copy_individual(offspring1, a_sub_population[r1], *params);
+						copy_individual(offspring2, a_sub_population[r2], *params);
+					}
+					// mutate the result and compute fitness
+					mutation(offspring1, *params, num_variables);
+					fitness(offspring1, params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+
+					// mutate the other offspring too
+					mutation(offspring2, *params, num_variables);
+					fitness(offspring2, params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+
+					// replace the worst in the population
+					if (offspring1.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
+						copy_individual(a_sub_population[params->sub_population_size - 1], offspring1, *params);
+						qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
+					}
+					if (offspring2.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
+						copy_individual(a_sub_population[params->sub_population_size - 1], offspring2, *params);
+						qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
+					}
+				}
+
+			delete_chromosome(offspring1);
+			delete_chromosome(offspring2);
 		}
-		else // next generations
-			for (int k = 0; k < params->sub_population_size; k += 2) {
-				// we increase by 2 because at each step we create 2 offspring
-
-				// choose the parents using binary tournament
-				int r1 = tournament_selection(a_sub_population, params->sub_population_size, 2);
-				int r2 = tournament_selection(a_sub_population, params->sub_population_size, 2);
-				// crossover
-				double p_0_1 = rand() / double(RAND_MAX); // a random number between 0 and 1
-				if (p_0_1 < params->crossover_probability)
-					one_cut_point_crossover(a_sub_population[r1], a_sub_population[r2], *params, offspring1, offspring2);
-				else {// no crossover so the offspring are a copy of the parents
-					copy_individual(offspring1, a_sub_population[r1], *params);
-					copy_individual(offspring2, a_sub_population[r2], *params);
-				}
-				// mutate the result and compute fitness
-				mutation(offspring1, *params, num_variables);
-				fitness(offspring1, params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
-
-				// mutate the other offspring too
-				mutation(offspring2, *params, num_variables);
-				fitness(offspring2, params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
-
-				// replace the worst in the population
-				if (offspring1.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
-					copy_individual(a_sub_population[params->sub_population_size - 1], offspring1, *params);
-					qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
-				}
-				if (offspring2.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
-					copy_individual(a_sub_population[params->sub_population_size - 1], offspring2, *params);
-					qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
-				}
-			}
-
-		delete_chromosome(offspring1);
-		delete_chromosome(offspring2);
 	}
 }
 //---------------------------------------------------------------------------
