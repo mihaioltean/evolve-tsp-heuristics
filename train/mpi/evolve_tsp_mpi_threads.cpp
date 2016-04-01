@@ -48,7 +48,7 @@
 
 //#include <vld.h> // for detecting memory leaks in VC++
 
-//#define USE_MPI
+#define USE_MPI
 
 #ifdef USE_MPI
 
@@ -122,7 +122,7 @@ struct t_chromosome{
 			sprintf(tmp_s, "%lg ", constants[i]);
 			strcat(s_dest, tmp_s);
 		}
-		sprintf(s_dest, "%lg ", fitness);
+		sprintf(tmp_s, "%lg ", fitness);
 		strcat(s_dest, tmp_s);
 	}
 	//------------------------------------------------------------------------------
@@ -219,7 +219,7 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 
 	int k = 0; // count the graphs
 	{
-		FILE* f = fopen("data\\bayg29.tsp", "r");
+		FILE* f = fopen("data//bayg29.tsp", "r");
 		if (!f)
 			return false;
 
@@ -245,7 +245,7 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 	}
 	{
 		k++;
-		FILE* f = fopen("data\\a280.tsp", "r");
+		FILE* f = fopen("data//a280.tsp", "r");
 		if (!f)
 			return false;
 
@@ -273,7 +273,7 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 	}
 	{
 		k++;
-		FILE* f = fopen("data\\berlin52.tsp", "r");
+		FILE* f = fopen("data//berlin52.tsp", "r");
 		if (!f)
 			return false;
 
@@ -301,7 +301,7 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 	}
 	{
 		k++;
-		FILE* f = fopen("data\\bier127.tsp", "r");
+		FILE* f = fopen("data//bier127.tsp", "r");
 		if (!f)
 			return false;
 
@@ -771,7 +771,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 				qsort((void *)sub_populations[index_next_pop], params.sub_population_size, sizeof(sub_populations[0][0]), sort_function);
 			}
 		}
-        
+        /*
         int source_sub_population_index = rand() % params.num_sub_populations;
         int chromosome_index = rand() % params.sub_population_size;
         
@@ -779,8 +779,8 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
         
         
         
-        receive_chromosome.from_string(s_source, params.code_length, params.num_constants);
-        
+        receive_chromosome.from_string(s_dest, params.code_length, params.num_constants);
+        */
 #ifdef USE_MPI
 		// here I have to copy few individuals from one process to another process
 		for (int i = 0; i < 1; i++) {
