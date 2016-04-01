@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 //   Multi Expression Programming Software - with multiple subpopulations and threads
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com)
-//   Version 2016.02.03
+//   Version 2016.04.01.1 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -38,17 +38,25 @@
 //   and n is the number of variables.
 
 //--------------------------------------------------------------------
+
+//#define USE_THREADS
+//#define USE_MPI
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+
+#ifdef USE_THREADS
 #include <thread>
 #include <mutex>
+#endif
+
 #include <float.h>
 
 //#include <vld.h> // for detecting memory leaks in VC++
 
-#define USE_MPI
+
 
 #ifdef USE_MPI
 
@@ -152,8 +160,9 @@ struct t_parameters{
 	int num_constants;
 	double constants_min, constants_max;   // the array for constants
 	double variables_probability, operators_probability, constants_probability;
-
-	int num_threads; // num threads. 
+#ifdef USE_THREADS
+	int num_threads; // num threads.
+#endif
 	//for best performances the number of subpopulations should be multiple of num_threads.
 	// num_thread should no exceed the number of processor cores.
 };
@@ -636,16 +645,24 @@ void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs
 	individual.fitness /= (double)num_training_graphs; // average over the number of training graphs
 }
 //-----------------------------------------------------------------
+#ifdef USE_THREADS
 void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_chromosome ** sub_populations, int generation_index, t_parameters *params, t_graph *training_graphs, int num_training_graphs, int num_variables, double* vars_values)
+#else
+void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_populations, int generation_index, t_parameters *params, t_graph *training_graphs, int num_training_graphs, int num_variables, double* vars_values)
+#endif
 {
 	int pop_index = 0;
 	while (*current_subpop_index < params->num_sub_populations) {// still more subpopulations to evolve?
-
+#ifdef USE_THREADS
 		while (!mutex->try_lock()) {}// create a lock so that multiple threads will not evolve the same sub population
 		pop_index = *current_subpop_index;
 		(*current_subpop_index)++;
 		mutex->unlock();
-
+#else
+        pop_index = *current_subpop_index;
+        (*current_subpop_index)++;
+#endif
+        
 		// pop_index is the index of the subpopulation evolved by the current thread
 		if (pop_index < params->num_sub_populations) {
 			t_chromosome *a_sub_population = sub_populations[pop_index];
@@ -728,7 +745,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 		for (int i = 0; i < params.sub_population_size; i++)
 			allocate_chromosome(sub_populations[p][i], params); // allocate each individual in the subpopulation 
 	}
-
+#ifdef USE_THREADS
 	// allocate memory
 	double** vars_values = new double*[params.num_threads];
 	for (int t = 0; t < params.num_threads; t++)
@@ -739,11 +756,14 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	// we create a fixed number of threads and each thread will take and evolve one subpopulation, then it will take another one
 	std::mutex mutex;
 	// we need a mutex to make sure that the same subpopulation will not be evolved twice by different threads
-	
+#else
+    double* vars_values = new double[num_variables];
+#endif
 	
 	// evolve for a fixed number of generations
 	for (int generation = 0; generation < params.num_generations; generation++) { // for each generation
 
+#ifdef USE_THREADS
 		int current_subpop_index = 0;
 		for (int t = 0; t < params.num_threads; t++)
 			mep_threads[t] = new std::thread(evolve_one_subpopulation, &current_subpop_index, &mutex, sub_populations, generation, &params, training_graphs, num_training_graphs, num_variables, vars_values[t]);
@@ -752,7 +772,12 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			mep_threads[t]->join();
 			delete mep_threads[t];
 		}
-
+#else
+       //for (int p = 0; p < params.num_sub_populations; p++)
+        int p = 0;
+               evolve_one_subpopulation(&p, sub_populations, generation, &params, training_graphs, num_training_graphs, num_variables, vars_values);
+           
+#endif
 		// find the best individual
 		int best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
 		for (int p = 1; p < params.num_sub_populations; p++)
@@ -797,8 +822,10 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 
 #endif
     }
+    
+    #ifdef USE_THREADS
 	delete[] mep_threads;
-
+#endif
 		// print best t_chromosome
 	// any of them can be printed because if we allow enough generations, the populations will become identical
 	print_chromosome(sub_populations[0][0], params, num_variables);
@@ -811,10 +838,12 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	}
 	delete[] sub_populations;
 
+    #ifdef USE_THREADS
 	for (int t = 0; t < params.num_threads; t++)
 		delete[] vars_values[t];
 	delete[] vars_values;
-
+#endif
+    
 	delete[] s_dest;
 	delete[] s_source;
 
@@ -845,7 +874,7 @@ int main(int argc, char* argv[])
 {
 	t_parameters params;
 	params.num_sub_populations = 4;
-	params.sub_population_size = 50;						    // the number of individuals in population  (must be an even number!)
+	params.sub_population_size = 10;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
 	params.num_generations = 100;					// the number of generations
 	params.mutation_probability = 0.1;              // mutation probability
@@ -859,8 +888,10 @@ int main(int argc, char* argv[])
 	params.constants_min = -1;
 	params.constants_max = 1;
 
+    #ifdef USE_THREADS
 	params.num_threads = 4;
-
+#endif
+    
 	t_graph *training_graphs = NULL;
 	int num_training_graphs = 0;
 
