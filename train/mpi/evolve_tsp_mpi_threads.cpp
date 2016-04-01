@@ -44,10 +44,11 @@
 #include <string.h>
 #include <thread>
 #include <mutex>
+#include <float.h>
 
 //#include <vld.h> // for detecting memory leaks in VC++
 
-#define USE_MPI
+//#define USE_MPI
 
 #ifdef USE_MPI
 
@@ -129,7 +130,7 @@ struct t_chromosome{
 	{
 		int num_consumed = 0;
 		for (int i = 0; i < code_length; i++) {
-			sscanf(s_source, "%d%d%d%n", prg[i].op, prg[i].adr1, prg[i].adr2, &num_consumed);
+			sscanf(s_source, "%d%d%d%n", &prg[i].op, &prg[i].adr1, &prg[i].adr2, &num_consumed);
 			s_source += num_consumed;
 		}
 		for (int i = 0; i < num_constants; i++) {
@@ -635,10 +636,10 @@ void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs
 	individual.fitness /= (double)num_training_graphs; // average over the number of training graphs
 }
 //-----------------------------------------------------------------
-void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_chromosome ** sub_populations, int generation_index, t_parameters &params, t_graph *training_graphs, int num_training_graphs, int num_variables, double* vars_values)
+void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_chromosome ** sub_populations, int generation_index, t_parameters *params, t_graph *training_graphs, int num_training_graphs, int num_variables, double* vars_values)
 {
 	int pop_index = 0;
-	while (*current_subpop_index < params.num_sub_populations) {// still more subpopulations to evolve?
+	while (*current_subpop_index < params->num_sub_populations) {// still more subpopulations to evolve?
 
 		while (!mutex->try_lock()) {}// create a lock so that multiple threads will not evolve the same sub population
 		pop_index = *current_subpop_index;
@@ -650,52 +651,52 @@ void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_ch
 		t_chromosome *a_sub_population = sub_populations[pop_index];
 
 		t_chromosome offspring1, offspring2;
-		allocate_chromosome(offspring1, params);
-		allocate_chromosome(offspring2, params);
+		allocate_chromosome(offspring1, *params);
+		allocate_chromosome(offspring2, *params);
 
-		double *partial_values_array = new double[params.code_length];
+		double *partial_values_array = new double[params->code_length];
 
 		if (generation_index == 0) {
-			for (int i = 0; i < params.sub_population_size; i++) {
-				generate_random_chromosome(a_sub_population[i], params, num_variables);
+			for (int i = 0; i < params->sub_population_size; i++) {
+				generate_random_chromosome(a_sub_population[i], *params, num_variables);
 				
-				fitness(a_sub_population[i], params.code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+				fitness(a_sub_population[i], params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 
 			}
 			// sort ascendingly by fitness inside this population
-			qsort((void *)a_sub_population, params.sub_population_size, sizeof(a_sub_population[0]), sort_function);
+			qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
 		}
 		else // next generations
-			for (int k = 0; k < params.sub_population_size; k += 2) {
+			for (int k = 0; k < params->sub_population_size; k += 2) {
 				// we increase by 2 because at each step we create 2 offspring
 
 				// choose the parents using binary tournament
-				int r1 = tournament_selection(a_sub_population, params.sub_population_size, 2);
-				int r2 = tournament_selection(a_sub_population, params.sub_population_size, 2);
+				int r1 = tournament_selection(a_sub_population, params->sub_population_size, 2);
+				int r2 = tournament_selection(a_sub_population, params->sub_population_size, 2);
 				// crossover
 				double p_0_1 = rand() / double(RAND_MAX); // a random number between 0 and 1
-				if (p_0_1 < params.crossover_probability)
-					one_cut_point_crossover(a_sub_population[r1], a_sub_population[r2], params, offspring1, offspring2);
+				if (p_0_1 < params->crossover_probability)
+					one_cut_point_crossover(a_sub_population[r1], a_sub_population[r2], *params, offspring1, offspring2);
 				else {// no crossover so the offspring are a copy of the parents
-					copy_individual(offspring1, a_sub_population[r1], params);
-					copy_individual(offspring2, a_sub_population[r2], params);
+					copy_individual(offspring1, a_sub_population[r1], *params);
+					copy_individual(offspring2, a_sub_population[r2], *params);
 				}
 				// mutate the result and compute fitness
-				mutation(offspring1, params, num_variables);
-				fitness(offspring1, params.code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+				mutation(offspring1, *params, num_variables);
+				fitness(offspring1, params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 
 				// mutate the other offspring too
-				mutation(offspring2, params, num_variables);
-				fitness(offspring2, params.code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+				mutation(offspring2, *params, num_variables);
+				fitness(offspring2, params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 
 				// replace the worst in the population
-				if (offspring1.fitness < a_sub_population[params.sub_population_size - 1].fitness) {
-					copy_individual(a_sub_population[params.sub_population_size - 1], offspring1, params);
-					qsort((void *)a_sub_population, params.sub_population_size, sizeof(a_sub_population[0]), sort_function);
+				if (offspring1.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
+					copy_individual(a_sub_population[params->sub_population_size - 1], offspring1, *params);
+					qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
 				}
-				if (offspring2.fitness < a_sub_population[params.sub_population_size - 1].fitness) {
-					copy_individual(a_sub_population[params.sub_population_size - 1], offspring2, params);
-					qsort((void *)a_sub_population, params.sub_population_size, sizeof(a_sub_population[0]), sort_function);
+				if (offspring2.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
+					copy_individual(a_sub_population[params->sub_population_size - 1], offspring2, *params);
+					qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
 				}
 			}
 
@@ -744,7 +745,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 
 		int current_subpop_index = 0;
 		for (int t = 0; t < params.num_threads; t++)
-			mep_threads[t] = new std::thread(evolve_one_subpopulation, &current_subpop_index, &mutex, sub_populations, generation, params, training_graphs, num_training_graphs, num_variables, vars_values[t]);
+			mep_threads[t] = new std::thread(evolve_one_subpopulation, &current_subpop_index, &mutex, sub_populations, generation, &params, training_graphs, num_training_graphs, num_variables, vars_values[t]);
 
 		for (int t = 0; t < params.num_threads; t++) {
 			mep_threads[t]->join();
@@ -770,7 +771,17 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 				qsort((void *)sub_populations[index_next_pop], params.sub_population_size, sizeof(sub_populations[0][0]), sort_function);
 			}
 		}
-
+        
+        int source_sub_population_index = rand() % params.num_sub_populations;
+        int chromosome_index = rand() % params.sub_population_size;
+        
+        sub_populations[source_sub_population_index][chromosome_index].to_string(s_dest, params.code_length, params.num_constants);
+        
+        
+        
+        receive_chromosome.from_string(s_source, params.code_length, params.num_constants);
+        
+#ifdef USE_MPI
 		// here I have to copy few individuals from one process to another process
 		for (int i = 0; i < 1; i++) {
 			int source_sub_population_index = rand() % params.num_sub_populations;
@@ -790,8 +801,10 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 				qsort((void *)sub_populations[dest_sub_population_index], params.sub_population_size, sizeof(sub_populations[0][0]), sort_function);
 			}
 		}
-	}
+	
 
+#endif
+    }
 	delete[] mep_threads;
 
 		// print best t_chromosome
@@ -860,7 +873,8 @@ int main(int argc, char* argv[])
 	int num_training_graphs = 0;
 
 	if (!read_training_data(training_graphs, num_training_graphs)) {
-		printf("Cannot find input file(s)! Please specify the full path!");
+		printf("Cannot find input file(s)! Please specify the full path!\n");
+        printf("Press Enter ...");
 		getchar();
 		return 1;
 	}
