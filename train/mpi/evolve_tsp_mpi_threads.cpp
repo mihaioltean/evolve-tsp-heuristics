@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 //   Multi Expression Programming Software - with multiple subpopulations and threads
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com)
-//   Version 2016.04.02.1 // year.month.day.build#
+//   Version 2016.04.02.2 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -819,13 +819,17 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			MPI_Send((void*)s_dest, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD);
 
 			MPI_Status status;
-			MPI_Recv(s_source, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
-			receive_chromosome.from_string(s_source, params.code_length, params.num_constants);
+			int flag;
+			MPI_Iprobe(current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
+			if (flag) {
+				MPI_Recv(s_source, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
+				receive_chromosome.from_string(s_source, params.code_length, params.num_constants);
 
-			int dest_sub_population_index = rand() % params.num_sub_populations;
-			if (receive_chromosome.fitness < sub_populations[dest_sub_population_index][params.sub_population_size - 1].fitness) {
-				copy_individual(sub_populations[dest_sub_population_index][params.sub_population_size - 1], receive_chromosome, params);
-				qsort((void *)sub_populations[dest_sub_population_index], params.sub_population_size, sizeof(sub_populations[0][0]), sort_function);
+				int dest_sub_population_index = rand() % params.num_sub_populations;
+				if (receive_chromosome.fitness < sub_populations[dest_sub_population_index][params.sub_population_size - 1].fitness) {
+					copy_individual(sub_populations[dest_sub_population_index][params.sub_population_size - 1], receive_chromosome, params);
+					qsort((void *)sub_populations[dest_sub_population_index], params.sub_population_size, sizeof(sub_populations[0][0]), sort_function);
+				}
 			}
 		}
 	
