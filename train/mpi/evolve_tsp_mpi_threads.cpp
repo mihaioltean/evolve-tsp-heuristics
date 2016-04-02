@@ -820,7 +820,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 
 			MPI_Status status;
 			int flag;
-			MPI_Iprobe(current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
+			MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
 			if (flag) {
 				MPI_Recv(s_source, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
 				receive_chromosome.from_string(s_source, params.code_length, params.num_constants);
