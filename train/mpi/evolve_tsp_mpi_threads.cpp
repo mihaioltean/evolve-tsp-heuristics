@@ -780,6 +780,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 #endif
 		// find the best individual
 		int best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
+		//double mean = sub_populations[p][0].fitness;
 		for (int p = 1; p < params.num_sub_populations; p++)
 			if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
 				best_individual_subpop_index = p;
@@ -876,8 +877,8 @@ int main(int argc, char* argv[])
 	params.num_sub_populations = 1;
 	params.sub_population_size = 100;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 100;					// the number of generations
-	params.mutation_probability = 0.1;              // mutation probability
+	params.num_generations = 1000;					// the number of generations
+	params.mutation_probability = 0.01;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
 	params.variables_probability = 0.4;
@@ -919,7 +920,7 @@ int main(int argc, char* argv[])
 	srand(current_proc_id); // we run each process with a different seed
 
 
-	printf("Evolving...\n");
+	printf("Evolving... proc_id = %d\n", current_proc_id);
 	start_steady_state(params, training_graphs, num_training_graphs, num_variables, num_procs, current_proc_id);
 
 	delete_training_graphs(training_graphs, num_training_graphs);
