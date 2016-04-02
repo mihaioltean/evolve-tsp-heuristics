@@ -40,7 +40,7 @@
 //--------------------------------------------------------------------
 
 //#define USE_THREADS
-//#define USE_MPI
+#define USE_MPI
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -873,8 +873,8 @@ void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
 int main(int argc, char* argv[])
 {
 	t_parameters params;
-	params.num_sub_populations = 4;
-	params.sub_population_size = 10;						    // the number of individuals in population  (must be an even number!)
+	params.num_sub_populations = 1;
+	params.sub_population_size = 100;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
 	params.num_generations = 100;					// the number of generations
 	params.mutation_probability = 0.1;              // mutation probability
