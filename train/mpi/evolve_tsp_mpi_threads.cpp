@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 //   Multi Expression Programming Software - with multiple subpopulations and threads
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com)
-//   Version 2016.04.01.1 // year.month.day.build#
+//   Version 2016.04.02.0 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -792,14 +792,14 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 				mean_fitness += sub_populations[p][i].fitness;
 
 		mean_fitness /= params.num_sub_populations * params.sub_population_size;
-
+		/*
 		time_t rawtime;
 		struct tm * timeinfo;
 
 		time(&rawtime);
 		timeinfo = localtime(&rawtime);
-
-		printf("proc_id=%d, generation=%d, best=%lf, mean=%lf, time=%s\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness, mean_fitness, asctime(timeinfo));
+		*/
+		printf("proc_id=%d, generation=%d, best=%lf, mean=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness, mean_fitness);
 
 		// now copy one individual from one population to the next one.
 		// the copied invidual will replace the worst in the next one (if is better)
