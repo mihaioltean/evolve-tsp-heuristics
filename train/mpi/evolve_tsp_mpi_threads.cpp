@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef USE_THREADS
 #include <thread>
@@ -780,11 +781,25 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 #endif
 		// find the best individual
 		int best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
-		//double mean = sub_populations[p][0].fitness;
-		for (int p = 1; p < params.num_sub_populations; p++)
+		
+		for (int p = 1; p < params.num_sub_populations; p++) 
 			if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
 				best_individual_subpop_index = p;
-		printf("proc_id = %d, generation %d, best fitness = %lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
+		
+		double mean_fitness = sub_populations[0][0].fitness;
+		for (int p = 0; p < params.num_sub_populations; p++)
+			for (int i = 0; i < params.sub_population_size; i++)
+				mean_fitness += sub_populations[p][i].fitness;
+
+		mean_fitness /= params.num_sub_populations * params.sub_population_size;
+
+		time_t rawtime;
+		struct tm * timeinfo;
+
+		time(&rawtime);
+		timeinfo = localtime(&rawtime);
+
+		printf("proc_id=%d, generation=%d, best=%lf, mean=%lf, time=%s\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness, mean_fitness, asctime(timeinfo));
 
 		// now copy one individual from one population to the next one.
 		// the copied invidual will replace the worst in the next one (if is better)
@@ -804,7 +819,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 		for (int i = 0; i < 1; i++) {
 			int source_sub_population_index = rand() % params.num_sub_populations;
 			int chromosome_index = rand() % params.sub_population_size;
-			int tag;
+			int tag = 0;
 
 			sub_populations[source_sub_population_index][chromosome_index].to_string(s_dest, params.code_length, params.num_constants);
 			MPI_Send((void*)s_dest, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD);
@@ -909,7 +924,7 @@ int main(int argc, char* argv[])
 
 	int current_proc_id = 0;
 
-	int num_procs;
+	int num_procs =0;
 #ifdef USE_MPI
 
 	MPI_Init(&argc, &argv);
