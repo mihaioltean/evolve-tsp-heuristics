@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 //   Multi Expression Programming Software - with multiple subpopulations and threads
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com)
-//   Version 2016.04.02.0 // year.month.day.build#
+//   Version 2016.04.02.1 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -71,7 +71,8 @@
 // +   -1
 // -   -2
 // *   -3
-// /   -4
+// min   -4
+// max   -5
 
 char operators_string[num_operators][10] = { "+", "-", "*", "min", "max" };
 
@@ -618,13 +619,13 @@ void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs
 			vars_values[num_visited_nodes] = count_nodes;
 			compute_local_variables(training_graphs[k], count_nodes, tsp_path[count_nodes - 1], node_visited, vars_values);
 
-			for (int nod = 0; nod < training_graphs[k].num_nodes; nod++)
+			for (int node = 0; node < training_graphs[k].num_nodes; node++)
 				// consider each unvisited node
-				if (!node_visited[nod]) {// not visited yet
-					vars_values[distance_to_next_node] = training_graphs[k].distance[tsp_path[count_nodes - 1]][nod];
+				if (!node_visited[node]) {// not visited yet
+					vars_values[distance_to_next_node] = training_graphs[k].distance[tsp_path[count_nodes - 1]][node];
 					double eval = evaluate(individual, code_length, num_variables, vars_values, partial_values_array);
 					if (eval < min_eval) {
-						best_node = nod; // keep the one with minimal evaluation
+						best_node = node; // keep the one with minimal evaluation
 						min_eval = eval;
 					}
 				}
@@ -785,21 +786,14 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 		for (int p = 1; p < params.num_sub_populations; p++) 
 			if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
 				best_individual_subpop_index = p;
-		
-		double mean_fitness = sub_populations[0][0].fitness;
-		for (int p = 0; p < params.num_sub_populations; p++)
-			for (int i = 0; i < params.sub_population_size; i++)
-				mean_fitness += sub_populations[p][i].fitness;
 
-		mean_fitness /= params.num_sub_populations * params.sub_population_size;
-		/*
-		time_t rawtime;
-		struct tm * timeinfo;
+		printf("proc_id=%d, generation=%d, best=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
 
-		time(&rawtime);
-		timeinfo = localtime(&rawtime);
-		*/
-		printf("proc_id=%d, generation=%d, best=%lf, mean=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness, mean_fitness);
+		if (current_proc_id == 0) {
+			FILE* f = fopen("tst_log.txt", "a");
+			fprintf(f, "proc_id=%d, generation=%d, best=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
+			fclose(f);
+		}
 
 		// now copy one individual from one population to the next one.
 		// the copied invidual will replace the worst in the next one (if is better)
