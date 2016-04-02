@@ -884,7 +884,7 @@ int main(int argc, char* argv[])
 {
 	t_parameters params;
 	params.num_sub_populations = 1;
-	params.sub_population_size = 100;						    // the number of individuals in population  (must be an even number!)
+	params.sub_population_size = 200;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
 	params.num_generations = 1000;					// the number of generations
 	params.mutation_probability = 0.01;              // mutation probability
@@ -894,7 +894,7 @@ int main(int argc, char* argv[])
 	params.operators_probability = 0.5;
 	params.constants_probability = 1 - params.variables_probability - params.operators_probability; // sum of variables_prob + operators_prob + constants_prob MUST BE 1 !
 
-	params.num_constants = 3; // use 3 constants from -1 ... +1 interval
+	params.num_constants = 10; // use 3 constants from -1 ... +1 interval
 	params.constants_min = -1;
 	params.constants_max = 1;
 
