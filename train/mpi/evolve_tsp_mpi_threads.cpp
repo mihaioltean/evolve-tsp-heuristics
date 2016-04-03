@@ -66,7 +66,7 @@
 #endif
 
 
-#define num_operators 6
+#define num_operators 7
 
 // +   -1
 // -   -2
@@ -74,7 +74,7 @@
 // min   -4
 // max   -5
 
-char operators_string[num_operators][10] = { "+", "-", "*", "min", "max" };
+char operators_string[num_operators][10] = { "+", "-", "*", "min", "max", "sin", "cos"};
 
 // variables
 // some indecses in the variables array
@@ -529,6 +529,12 @@ double evaluate(t_chromosome &a_t_chromosome, int code_length, int num_variables
 		case -5:// min
 			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
 			break;
+		case -6:// sin
+			partial_values_array[i] = sin(partial_values_array[a_t_chromosome.prg[i].adr1]);
+			break;
+		case -7:// cos
+			partial_values_array[i] = cos(partial_values_array[a_t_chromosome.prg[i].adr1]);
+			break;
 		default:
 			if (a_t_chromosome.prg[i].op < num_variables)
 				partial_values_array[i] = vars_values[a_t_chromosome.prg[i].op];
@@ -888,9 +894,9 @@ int main(int argc, char* argv[])
 {
 	t_parameters params;
 	params.num_sub_populations = 1;
-	params.sub_population_size = 200;						    // the number of individuals in population  (must be an even number!)
+	params.sub_population_size = 50;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 1000;					// the number of generations
+	params.num_generations = 10000;					// the number of generations
 	params.mutation_probability = 0.01;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
@@ -922,7 +928,7 @@ int main(int argc, char* argv[])
 
 	int current_proc_id = 0;
 
-	int num_procs =0;
+	int num_procs = 0;
 #ifdef USE_MPI
 
 	MPI_Init(&argc, &argv);
