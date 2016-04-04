@@ -222,17 +222,19 @@ void delete_partial_expression_values(double ***&expression_value, int code_leng
 	}
 }
 //---------------------------------------------------------------------------
-bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
-{
-	// training is done on 4 graphs
-	num_training_graphs = 4;
-	training_graphs = new t_graph[num_training_graphs];
+
+int read_training_data(t_graph *training_graphs, int num_training_graphs)
+	{
+		// training is done on 4 graphs
+		//4 graphs are read
+
+
 
 	int k = 0; // count the graphs
 	{
 		FILE* f = fopen("data//bayg29.tsp", "r");
 		if (!f)
-			return false;
+			return 0;
 
 		fscanf(f, "%d", &training_graphs[k].num_nodes);
 		// allocate the memory first
@@ -258,7 +260,7 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 		k++;
 		FILE* f = fopen("data//a280.tsp", "r");
 		if (!f)
-			return false;
+			return 0;
 
 		fscanf(f, "%d", &training_graphs[k].num_nodes);
 		// allocate the memory first
@@ -286,7 +288,7 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 		k++;
 		FILE* f = fopen("data//berlin52.tsp", "r");
 		if (!f)
-			return false;
+			return 0;
 
 		fscanf(f, "%d", &training_graphs[k].num_nodes);
 		// allocate the memory first
@@ -314,7 +316,7 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 		k++;
 		FILE* f = fopen("data//bier127.tsp", "r");
 		if (!f)
-			return false;
+			return 0;
 
 		fscanf(f, "%d", &training_graphs[k].num_nodes);
 		// allocate the memory first
@@ -734,6 +736,8 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_training_graphs, int num_variables, int num_procs, int current_proc_id)
 {
 
+	MPI_Request *request;
+
 	int size_to_send = params.code_length * sizeof(t_code3) + params.num_constants * 20 + 20;
 	char *s_source = new char[size_to_send];
 	char *s_dest = new char[size_to_send];
@@ -822,12 +826,15 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			int tag = 0;
 
 			sub_populations[source_sub_population_index][chromosome_index].to_string(s_dest, params.code_length, params.num_constants);
+			//MPI_Isend((void*)s_dest, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD,request);
+			//MPI_Request_free(request);
 			MPI_Send((void*)s_dest, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD);
 
 			MPI_Status status;
 			int flag;
-			MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
-			if (flag) {
+		//	MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
+			if (flag)
+			{
 				MPI_Recv(s_source, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
 				receive_chromosome.from_string(s_source, params.code_length, params.num_constants);
 
@@ -889,81 +896,121 @@ void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
 		training_graphs[k].average_distance /= (training_graphs[k].num_nodes * training_graphs[k].num_nodes) - training_graphs[k].num_nodes;
 	}
 }
+
 //--------------------------------------------------------------------
-int main(int argc, char* argv[])
-{
-	t_parameters params;
-	params.num_sub_populations = 1;
-	params.sub_population_size = 50;						    // the number of individuals in population  (must be an even number!)
+
+bool allocate_training_graphs(t_graph *&training_graphs, int& num_training_graphs){
+	num_training_graphs = 4;
+	training_graphs = new t_graph[num_training_graphs];
+	return true;
+}
+//--------------------------------------------------------------------
+void init_params(t_parameters& params){
+	params.num_sub_populations = 4;
+	params.sub_population_size = 10;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 1000;					// the number of generations
-	params.mutation_probability = 0.01;              // mutation probability
+	params.num_generations = 10;					// the number of generations
+	params.mutation_probability = 0.1;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
 	params.variables_probability = 0.4;
 	params.operators_probability = 0.5;
-	params.constants_probability = 1 - params.variables_probability - params.operators_probability; // sum of variables_prob + operators_prob + constants_prob MUST BE 1 !
+	params.constants_probability = 1 - params.variables_probability - params.operators_probability;
+	// / sum of variables_prob + operators_prob + constants_prob MUST BE 1 !
 
-	params.num_constants = 10; // use 3 constants from -1 ... +1 interval
+	params.num_constants = 3; // use 3 constants from -1 ... +1 interval
 	params.constants_min = -1;
 	params.constants_max = 1;
 
-    #ifdef USE_THREADS
+#ifdef USE_THREADS
 	params.num_threads = 4;
 #endif
+}
+//--------------------------------------------------------------------
+int main(int argc, char* argv[])
+{
+	t_parameters params;
+	init_params(params);
+
+	int num_procs = 1;
+	int current_proc_id = 0;
     
 	t_graph *training_graphs = NULL;
 	int num_training_graphs = 0;
 
-	if (!read_training_data(training_graphs, num_training_graphs)) {
-		printf("Cannot find input file(s)! Please specify the full path!\n");
-        printf("Press Enter ...");
+
+#ifndef USE_MPI
+	if (allocate_training_graphs(training_graphs, num_training_graphs)) {
+		if (!read_training_data(training_graphs, num_training_graphs)) {
+			printf("Cannot find input file(s)! Please specify the full path!\n");
+			printf("Press Enter ...");
+			getchar();
+			return 1;
+		}
+
+
+		compute_global_variables(training_graphs, num_training_graphs);
+		int num_variables = 10;
+
+		//srand(current_proc_id); // we run each process with a different seed
+
+		printf("Evolving.  ..\n");
+
+		start_steady_state(params, training_graphs, num_training_graphs, num_variables, num_procs, current_proc_id);
+		delete_training_graphs(training_graphs, num_training_graphs);
+
+		printf("Press enter ...");
 		getchar();
-		return 1;
+
 	}
-
-	compute_global_variables(training_graphs, num_training_graphs);
-
-	int num_variables = 10;
-
-	int current_proc_id = 0;
-
-	int num_procs = 0;
-
-	double starttime, endtime;
+#endif
 
 #ifdef USE_MPI
+
+	double starttime, endtime;
 
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &current_proc_id);
 
-	if (current_proc_id==0)
-		starttime = MPI_Wtime();
-#endif
+	bool alloc_signal = allocate_training_graphs(training_graphs, num_training_graphs);
+	if (alloc_signal) {
 
-	srand(current_proc_id); // we run each process with a different seed
+		//reading graphs
+		int read_sum = 0, verif_read_sum = 0;
+
+		read_sum = read_training_data(training_graphs, num_training_graphs);
+		MPI_Status status;
+		MPI_Allreduce(&read_sum, &verif_read_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+		// printf("  proc ID=%d read_sum=%d, verif_read_sum%d..\n", current_proc_id, read_sum, verif_read_sum);
+		if (verif_read_sum == num_procs) {
 
 
-	printf("Evolving... proc_id = %d\n", current_proc_id);
-	start_steady_state(params, training_graphs, num_training_graphs, num_variables, num_procs, current_proc_id);
+			if (current_proc_id==0)
+				starttime = MPI_Wtime();
 
-	delete_training_graphs(training_graphs, num_training_graphs);
+			compute_global_variables(training_graphs, num_training_graphs);
 
-#ifdef USE_MPI
-	if (current_proc_id == 0) {
+			int num_variables = 10;
 
-		endtime = MPI_Wtime();
+			srand(current_proc_id); // we run each process with a different seed
 
-		printf("computation took %f seconds\n", endtime - starttime);
+			printf("Evolving. proc ID=%d ..\n", current_proc_id);
 
-		//printf("Press Enter ...");
-		//getchar();
+			start_steady_state(params, training_graphs, num_training_graphs, num_variables, num_procs, current_proc_id);
+
+			if (current_proc_id==0) {
+				endtime = MPI_Wtime();
+				printf("computation took %f seconds\n", endtime - starttime);
+			}
+
+		}
+		delete_training_graphs(training_graphs, num_training_graphs);
 	}
+
 
 	MPI_Finalize();
 #endif
-
 	return 0;
 }
 //--------------------------------------------------------------------
