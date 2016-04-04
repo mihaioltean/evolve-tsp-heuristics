@@ -733,7 +733,8 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 	}
 }
 //---------------------------------------------------------------------------
-void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_training_graphs, int num_variables, int num_procs, int current_proc_id)
+void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_training_graphs,
+						int num_variables, int num_procs, int current_proc_id, int &recv_no)
 {
 
 	MPI_Request *request;
@@ -836,6 +837,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			if (flag)
 			{
 				MPI_Recv(s_source, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
+				recv_no++;
 				receive_chromosome.from_string(s_source, params.code_length, params.num_constants);
 
 				int dest_sub_population_index = rand() % params.num_sub_populations;
@@ -973,6 +975,8 @@ int main(int argc, char* argv[])
 	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &current_proc_id);
 
+	int  recv_no = 0;
+
 	bool alloc_signal = allocate_training_graphs(training_graphs, num_training_graphs);
 	if (alloc_signal) {
 
@@ -995,14 +999,13 @@ int main(int argc, char* argv[])
 
 			printf("Evolving. proc ID=%d ..\n", current_proc_id);
 
-			start_steady_state(params, training_graphs, num_training_graphs, num_variables, num_procs, current_proc_id);
+			start_steady_state(params, training_graphs, num_training_graphs, num_variables, num_procs, current_proc_id, recv_no);
 
 			endtime = MPI_Wtime();
 			computetime = endtime - starttime;
 
-			printf("in proc id = %d computation took %f seconds\n", current_proc_id, computetime);
-			//int ierr = MPI_Reduce( &computetime, &compute_sum, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
+			printf("in proc id = %d recv_no %d \n", current_proc_id, recv_no);
 
 			MPI_Reduce(&computetime, &compute_sum, 1, MPI_DOUBLE, MPI_SUM, 0,  MPI_COMM_WORLD);
 			MPI_Reduce(&computetime, &compute_max, 1, MPI_DOUBLE, MPI_MAX, 0,  MPI_COMM_WORLD);
