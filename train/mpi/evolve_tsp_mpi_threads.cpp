@@ -896,7 +896,7 @@ int main(int argc, char* argv[])
 	params.num_sub_populations = 1;
 	params.sub_population_size = 50;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 10000;					// the number of generations
+	params.num_generations = 1000;					// the number of generations
 	params.mutation_probability = 0.01;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
@@ -929,11 +929,17 @@ int main(int argc, char* argv[])
 	int current_proc_id = 0;
 
 	int num_procs = 0;
+
+	double starttime, endtime;
+
 #ifdef USE_MPI
 
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &current_proc_id);
+
+	if (current_proc_id==0)
+		starttime = MPI_Wtime();
 #endif
 
 	srand(current_proc_id); // we run each process with a different seed
@@ -947,9 +953,12 @@ int main(int argc, char* argv[])
 #ifdef USE_MPI
 	if (current_proc_id == 0) {
 
+		endtime = MPI_Wtime();
 
-		printf("Press Enter ...");
-		getchar();
+		printf("computation took %f seconds\n", endtime - starttime);
+
+		//printf("Press Enter ...");
+		//getchar();
 	}
 
 	MPI_Finalize();
