@@ -832,7 +832,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 
 			MPI_Status status;
 			int flag;
-		//	MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
+			MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
 			if (flag)
 			{
 				MPI_Recv(s_source, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
@@ -907,7 +907,7 @@ bool allocate_training_graphs(t_graph *&training_graphs, int& num_training_graph
 //--------------------------------------------------------------------
 void init_params(t_parameters& params){
 	params.num_sub_populations = 4;
-	params.sub_population_size = 10;						    // the number of individuals in population  (must be an even number!)
+	params.sub_population_size = 30;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
 	params.num_generations = 10;					// the number of generations
 	params.mutation_probability = 0.1;              // mutation probability
@@ -967,7 +967,7 @@ int main(int argc, char* argv[])
 
 #ifdef USE_MPI
 
-	double starttime, endtime;
+	double starttime, endtime, computetime, compute_sum=0, compute_max=0;
 
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -985,9 +985,7 @@ int main(int argc, char* argv[])
 		// printf("  proc ID=%d read_sum=%d, verif_read_sum%d..\n", current_proc_id, read_sum, verif_read_sum);
 		if (verif_read_sum == num_procs) {
 
-
-			if (current_proc_id==0)
-				starttime = MPI_Wtime();
+			starttime = MPI_Wtime();
 
 			compute_global_variables(training_graphs, num_training_graphs);
 
@@ -999,9 +997,20 @@ int main(int argc, char* argv[])
 
 			start_steady_state(params, training_graphs, num_training_graphs, num_variables, num_procs, current_proc_id);
 
-			if (current_proc_id==0) {
-				endtime = MPI_Wtime();
-				printf("computation took %f seconds\n", endtime - starttime);
+			endtime = MPI_Wtime();
+			computetime = endtime - starttime;
+
+			printf("in proc id = %d computation took %f seconds\n", current_proc_id, computetime);
+			//int ierr = MPI_Reduce( &computetime, &compute_sum, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
+
+			MPI_Reduce(&computetime, &compute_sum, 1, MPI_DOUBLE, MPI_SUM, 0,  MPI_COMM_WORLD);
+			MPI_Reduce(&computetime, &compute_max, 1, MPI_DOUBLE, MPI_MAX, 0,  MPI_COMM_WORLD);
+			if (current_proc_id==0)
+			{
+
+				printf("average computation time per process is %f seconds\n", compute_sum/num_procs);
+				printf("maximum  computation time of processes is %f seconds\n", compute_max);
 			}
 
 		}
