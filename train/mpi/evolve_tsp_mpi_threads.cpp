@@ -737,7 +737,9 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 						int num_variables, int num_procs, int current_proc_id, int &recv_no)
 {
 
-	MPI_Request *request;
+	MPI_Request *send_request= new MPI_Request(MPI_REQUEST_NULL);
+	MPI_Request *recv_request= new MPI_Request(MPI_REQUEST_NULL);
+	MPI_Status status;
 
 	int size_to_send = params.code_length * sizeof(t_code3) + params.num_constants * 20 + 20;
 	char *s_source = new char[size_to_send];
@@ -788,7 +790,8 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 #else
        //for (int p = 0; p < params.num_sub_populations; p++)
         int p = 0;
-               evolve_one_subpopulation(&p, sub_populations, generation, &params, training_graphs, num_training_graphs, num_variables, vars_values);
+               evolve_one_subpopulation(&p, sub_populations, generation, &params, training_graphs,
+										num_training_graphs, num_variables, vars_values);
            
 #endif
 		// find the best individual
@@ -826,24 +829,40 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			int chromosome_index = rand() % params.sub_population_size;
 			int tag = 0;
 
-			sub_populations[source_sub_population_index][chromosome_index].to_string(s_dest, params.code_length, params.num_constants);
-			//MPI_Isend((void*)s_dest, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD,request);
-			//MPI_Request_free(request);
-			MPI_Send((void*)s_dest, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD);
 
-			MPI_Status status;
+			if(generation>0) {
+				MPI_Wait(send_request, &status);
+			}
+			sub_populations[source_sub_population_index][chromosome_index].to_string(s_dest, params.code_length, params.num_constants);
+			MPI_Isend((void*)s_dest, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD,send_request);
+
+
+			//MPI_Send((void*)s_dest, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD);
+
+
 			int flag;
 			MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
 			if (flag)
 			{
 				MPI_Recv(s_source, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
-				recv_no++;
-				receive_chromosome.from_string(s_source, params.code_length, params.num_constants);
 
-				int dest_sub_population_index = rand() % params.num_sub_populations;
-				if (receive_chromosome.fitness < sub_populations[dest_sub_population_index][params.sub_population_size - 1].fitness) {
-					copy_individual(sub_populations[dest_sub_population_index][params.sub_population_size - 1], receive_chromosome, params);
-					qsort((void *)sub_populations[dest_sub_population_index], params.sub_population_size, sizeof(sub_populations[0][0]), sort_function);
+				//if (*recv_request != MPI_REQUEST_NULL) MPI_Request_free(recv_request);
+				//MPI_Irecv(s_source, size_to_send, MPI_CHAR,  !current_proc_id ? num_procs - 1 :  current_proc_id - 1,
+				//		  tag, MPI_COMM_WORLD,  recv_request);
+
+				//MPI_Test(recv_request, &flag, &status);
+				//if (flag)
+				{
+					recv_no++;
+					receive_chromosome.from_string(s_source, params.code_length, params.num_constants);
+					int dest_sub_population_index = rand() % params.num_sub_populations;
+					if (receive_chromosome.fitness < sub_populations[dest_sub_population_index][params.sub_population_size - 1].fitness) {
+						copy_individual(sub_populations[dest_sub_population_index][params.sub_population_size - 1],
+										receive_chromosome, params);
+						qsort((void *) sub_populations[dest_sub_population_index], params.sub_population_size,
+							  sizeof(sub_populations[0][0]), sort_function);
+
+					}
 				}
 			}
 		}
@@ -875,6 +894,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
     
 	delete[] s_dest;
 	delete[] s_source;
+
 
 	delete_chromosome(receive_chromosome);
 }
@@ -911,7 +931,7 @@ void init_params(t_parameters& params){
 	params.num_sub_populations = 4;
 	params.sub_population_size = 30;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 10;					// the number of generations
+	params.num_generations = 50;					// the number of generations
 	params.mutation_probability = 0.1;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
