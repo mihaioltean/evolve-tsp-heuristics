@@ -830,7 +830,8 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			int tag = 0;
 
 
-			if(generation>0) {
+			if(generation>0)
+			{
 				if (send_request != MPI_REQUEST_NULL) MPI_Request_free(&send_request);
 				//MPI_Wait(send_request, &status);
 			}
@@ -842,17 +843,17 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 
 
 			int flag;
-			//MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
-			//if (flag)
+			MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
+			if (flag)
 			{
-				//MPI_Recv(s_dest, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
+				MPI_Recv(s_dest, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
 
-				if (recv_request != MPI_REQUEST_NULL) MPI_Request_free(&recv_request);
-				MPI_Irecv(s_dest, size_to_send, MPI_CHAR,  !current_proc_id ? num_procs - 1 :  current_proc_id - 1,
-						  tag, MPI_COMM_WORLD,  &recv_request);
+				//if (recv_request != MPI_REQUEST_NULL) MPI_Request_free(&recv_request);
+				//MPI_Irecv(s_dest, size_to_send, MPI_CHAR,  !current_proc_id ? num_procs - 1 :  current_proc_id - 1,
+				//		  tag, MPI_COMM_WORLD,  &recv_request);
 
-				MPI_Test(&recv_request, &flag, &status);
-				if (flag)
+				//MPI_Test(&recv_request, &flag, &status);
+				//if (flag)
 				{
 					recv_no++;
 					receive_chromosome.from_string(s_dest, params.code_length, params.num_constants);
@@ -932,7 +933,7 @@ void init_params(t_parameters& params){
 	params.num_sub_populations = 4;
 	params.sub_population_size = 30;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 20;					// the number of generations
+	params.num_generations = 50;					// the number of generations
 	params.mutation_probability = 0.1;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
@@ -990,9 +991,29 @@ int main(int argc, char* argv[])
 
 #ifdef USE_MPI
 
+	#ifndef  USE_THREADS
+		MPI_Init(&argc, &argv);
+	#else USE_THREADS
+		int provided, flag,claimed, errs;
+		MPI_Init_thread( &argc, &argv, MPI_THREAD_MULTIPLE, &provided );
+
+		MPI_Is_thread_main( &flag );
+		if (!flag) {
+			errs++;
+			printf( "This thread called init_thread but Is_thread_main gave false\n" );fflush(stdout);
+		}
+		else  printf( "This thread called init_thread with thread level %d\n", provided );fflush(stdout);
+		MPI_Query_thread( &claimed );
+		if (claimed != provided) {
+			errs++;
+			printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
+		}
+		else printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
+	#endif
+
+
 	double starttime, endtime, computetime, compute_sum=0, compute_max=0;
 
-	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &current_proc_id);
 
