@@ -19,7 +19,7 @@
 //   Also compiled with XCode 5.
 //   Requires C++11 or newer (for thread support)
 
-//   how to use it: 
+//   how to use it:
 //   just create a console project and copy-paste the content this file in the main file of the project
 
 //   More info at:  http://www.mep.cs.ubbcluj.ro
@@ -102,8 +102,8 @@ struct t_graph{
 
 //---------------------------------------------------------------------------
 struct t_code3{
-	int op;				// either a variable, operator or constant; 
-	// variables are indexed from 0: 0,1,2,...; 
+	int op;				// either a variable, operator or constant;
+	// variables are indexed from 0: 0,1,2,...;
 	// constants are indexed from num_variables
 	// operators are -1, -2, -3...
 	int adr1, adr2;    // pointers to arguments
@@ -224,9 +224,9 @@ void delete_partial_expression_values(double ***&expression_value, int code_leng
 //---------------------------------------------------------------------------
 
 int read_training_data(t_graph *training_graphs, int num_training_graphs)
-	{
-		// training is done on 4 graphs
-		//4 graphs are read
+{
+	// training is done on 4 graphs
+	//4 graphs are read
 
 
 
@@ -384,10 +384,10 @@ void generate_random_chromosome(t_chromosome &a, t_parameters &params, int num_v
 		if (p <= params.operators_probability)
 			a.prg[i].op = -rand() % num_operators - 1;        // an operator
 		else
-			if (p <= params.operators_probability + params.variables_probability)
-				a.prg[i].op = rand() % num_variables;     // a variable
-			else
-				a.prg[i].op = num_variables + rand() % params.num_constants; // index of a constant
+		if (p <= params.operators_probability + params.variables_probability)
+			a.prg[i].op = rand() % num_variables;     // a variable
+		else
+			a.prg[i].op = num_variables + rand() % params.num_constants; // index of a constant
 
 		a.prg[i].adr1 = rand() % i;
 		a.prg[i].adr2 = rand() % i;
@@ -418,10 +418,10 @@ void mutation(t_chromosome &a_chromosome, t_parameters params, int num_variables
 			if (p <= params.operators_probability)
 				a_chromosome.prg[i].op = -rand() % num_operators - 1;
 			else
-				if (p <= params.operators_probability + params.variables_probability)
-					a_chromosome.prg[i].op = rand() % num_variables;
-				else
-					a_chromosome.prg[i].op = num_variables + rand() % params.num_constants; // index of a constant
+			if (p <= params.operators_probability + params.variables_probability)
+				a_chromosome.prg[i].op = rand() % num_variables;
+			else
+				a_chromosome.prg[i].op = num_variables + rand() % params.num_constants; // index of a constant
 		}
 
 		p = rand() / (double)RAND_MAX;      // mutate the first address  (adr1)
@@ -434,7 +434,7 @@ void mutation(t_chromosome &a_chromosome, t_parameters params, int num_variables
 	}
 	// mutate the constants
 	for (int c = 0; c < params.num_constants; c++) {
-		p = rand() / (double)RAND_MAX; 
+		p = rand() / (double)RAND_MAX;
 		if (p < params.mutation_probability)
 			a_chromosome.constants[c] = rand() / double(RAND_MAX) * (params.constants_max - params.constants_min) + params.constants_min;
 	}
@@ -495,10 +495,10 @@ int sort_function(const void *a, const void *b)
 	if (((t_chromosome *)a)->fitness > ((t_chromosome *)b)->fitness)
 		return 1;
 	else
-		if (((t_chromosome *)a)->fitness < ((t_chromosome *)b)->fitness)
-			return -1;
-		else
-			return 0;
+	if (((t_chromosome *)a)->fitness < ((t_chromosome *)b)->fitness)
+		return -1;
+	else
+		return 0;
 }
 //---------------------------------------------------------------------------
 int tournament_selection(t_chromosome *a_sub_pop, int sub_pop_size, int tournament_size)     // Size is the size of the tournament
@@ -516,33 +516,33 @@ double evaluate(t_chromosome &a_t_chromosome, int code_length, int num_variables
 {
 	for (int i = 0; i < code_length; i++)
 		switch (a_t_chromosome.prg[i].op) {
-		case -1:// +
-			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] + partial_values_array[a_t_chromosome.prg[i].adr2];
-			break;
-		case -2:// -
-			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] - partial_values_array[a_t_chromosome.prg[i].adr2];
-			break;
-		case -3:// *
-			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] * partial_values_array[a_t_chromosome.prg[i].adr2];
-			break;
-		case -4:// max
-			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] > partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
-			break;
-		case -5:// min
-			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
-			break;
-		case -6:// sin
-			partial_values_array[i] = sin(partial_values_array[a_t_chromosome.prg[i].adr1]);
-			break;
-		case -7:// cos
-			partial_values_array[i] = cos(partial_values_array[a_t_chromosome.prg[i].adr1]);
-			break;
-		default:
-			if (a_t_chromosome.prg[i].op < num_variables)
-				partial_values_array[i] = vars_values[a_t_chromosome.prg[i].op];
-			else
-				partial_values_array[i] = a_t_chromosome.constants[a_t_chromosome.prg[i].op - num_variables];
-	}
+			case -1:// +
+				partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] + partial_values_array[a_t_chromosome.prg[i].adr2];
+				break;
+			case -2:// -
+				partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] - partial_values_array[a_t_chromosome.prg[i].adr2];
+				break;
+			case -3:// *
+				partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] * partial_values_array[a_t_chromosome.prg[i].adr2];
+				break;
+			case -4:// max
+				partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] > partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
+				break;
+			case -5:// min
+				partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
+				break;
+			case -6:// sin
+				partial_values_array[i] = sin(partial_values_array[a_t_chromosome.prg[i].adr1]);
+				break;
+			case -7:// cos
+				partial_values_array[i] = cos(partial_values_array[a_t_chromosome.prg[i].adr1]);
+				break;
+			default:
+				if (a_t_chromosome.prg[i].op < num_variables)
+					partial_values_array[i] = vars_values[a_t_chromosome.prg[i].op];
+				else
+					partial_values_array[i] = a_t_chromosome.constants[a_t_chromosome.prg[i].op - num_variables];
+		}
 
 	return partial_values_array[code_length - 1]; // last gene is the one providing the output
 }
@@ -558,10 +558,10 @@ void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
 		if (a.prg[i].op < 0)
 			printf("%d: %s %d %d\n", i, operators_string[abs(a.prg[i].op) - 1], a.prg[i].adr1, a.prg[i].adr2);
 		else
-			if (a.prg[i].op < num_variables)
-				printf("%d: inputs[%d]\n", i, a.prg[i].op);
-			else
-				printf("%d: constants[%d]\n", i, a.prg[i].op - num_variables);
+		if (a.prg[i].op < num_variables)
+			printf("%d: inputs[%d]\n", i, a.prg[i].op);
+		else
+			printf("%d: constants[%d]\n", i, a.prg[i].op - num_variables);
 
 	printf("Fitness = %lf\n", a.fitness);
 }
@@ -669,10 +669,10 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 		(*current_subpop_index)++;
 		mutex->unlock();
 #else
-        pop_index = *current_subpop_index;
-        (*current_subpop_index)++;
+		pop_index = *current_subpop_index;
+		(*current_subpop_index)++;
 #endif
-        
+
 		// pop_index is the index of the subpopulation evolved by the current thread
 		if (pop_index < params->num_sub_populations) {
 			t_chromosome *a_sub_population = sub_populations[pop_index];
@@ -749,7 +749,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	allocate_chromosome(receive_chromosome, params);
 
 
-	// a steady state model - 
+	// a steady state model -
 	// Newly created inviduals replace the worst ones (if the offspring are better) in the same (sub) population.
 
 	// allocate memory for all sub populations
@@ -758,7 +758,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	for (int p = 0; p < params.num_sub_populations; p++) {
 		sub_populations[p] = new t_chromosome[params.sub_population_size];
 		for (int i = 0; i < params.sub_population_size; i++)
-			allocate_chromosome(sub_populations[p][i], params); // allocate each individual in the subpopulation 
+			allocate_chromosome(sub_populations[p][i], params); // allocate each individual in the subpopulation
 	}
 #ifdef USE_THREADS
 	// allocate memory
@@ -772,9 +772,9 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	std::mutex mutex;
 	// we need a mutex to make sure that the same subpopulation will not be evolved twice by different threads
 #else
-    double* vars_values = new double[num_variables];
+	double* vars_values = new double[num_variables];
 #endif
-	
+
 	// evolve for a fixed number of generations
 	for (int generation = 0; generation < params.num_generations; generation++) { // for each generation
 
@@ -788,26 +788,51 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			delete mep_threads[t];
 		}
 #else
-       //for (int p = 0; p < params.num_sub_populations; p++)
-        int p = 0;
-               evolve_one_subpopulation(&p, sub_populations, generation, &params, training_graphs,
-										num_training_graphs, num_variables, vars_values);
-           
+		//for (int p = 0; p < params.num_sub_populations; p++)
+		int p = 0;
+		evolve_one_subpopulation(&p, sub_populations, generation, &params, training_graphs,
+								 num_training_graphs, num_variables, vars_values);
+
 #endif
 		// find the best individual
 		int best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
-		
-		for (int p = 1; p < params.num_sub_populations; p++) 
+
+		for (int p = 1; p < params.num_sub_populations; p++)
 			if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
 				best_individual_subpop_index = p;
 
-		printf("proc_id=%d, generation=%d, best=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
+/*		printf("proc_id=%d, generation=%d, best=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
 
 		if (current_proc_id == 0) {
 			FILE* f = fopen("tst_log.txt", "a");
 			fprintf(f, "proc_id=%d, generation=%d, best=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
 			fclose(f);
 		}
+*/
+
+		char * message;
+		message = new char[50];
+		 strcpy(message,"pid ");
+		 char *spid = new char[4]; 
+		sprintf(spid,"%d",current_proc_id); 
+		strcat(message,spid); 
+		strcat(message,"  generation "); 
+		char* sgen = new char[10]; 
+		sprintf(sgen,"%d",generation); 
+		strcat(message,sgen); 
+		strcat(message,"  best fitness");
+		 char* sfit = new char[10]; 
+		sprintf(sfit,"%f",sub_populations[best_individual_subpop_index][0].fitness); 
+		strcat(message,sfit);  strcat(message,"\n");
+
+
+
+		 MPI_File   file; 
+		int err = MPI_File_open(MPI_COMM_SELF,
+								"fitness_log.txt",
+								MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_APPEND,	MPI_INFO_NULL, &file);
+		MPI_File_write(file, message, (int)strlen(message), MPI_CHAR, &status); 
+		MPI_File_close(&file); 
 
 		// now copy one individual from one population to the next one.
 		// the copied invidual will replace the worst in the next one (if is better)
@@ -821,7 +846,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 				qsort((void *)sub_populations[index_next_pop], params.sub_population_size, sizeof(sub_populations[0][0]), sort_function);
 			}
 		}
-        
+
 #ifdef USE_MPI
 		// here I have to copy few individuals from one process to another process
 		for (int i = 0; i < 1; i++) {
@@ -830,10 +855,9 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			int tag = 0;
 
 
-			if(generation>0)
-			{
-				if (send_request != MPI_REQUEST_NULL) MPI_Request_free(&send_request);
-				//MPI_Wait(send_request, &status);
+			if(generation>0) {
+			if (send_request != MPI_REQUEST_NULL) MPI_Request_free(&send_request);
+				MPI_Wait(&send_request, &status);
 			}
 			sub_populations[source_sub_population_index][chromosome_index].to_string(s_source, params.code_length, params.num_constants);
 			MPI_Isend(s_source, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD,&send_request);
@@ -868,15 +892,15 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 				}
 			}
 		}
-	
+
 
 #endif
-    }
-    
-    #ifdef USE_THREADS
+	}
+
+#ifdef USE_THREADS
 	delete[] mep_threads;
 #endif
-		// print best t_chromosome
+	// print best t_chromosome
 	// any of them can be printed because if we allow enough generations, the populations will become identical
 	print_chromosome(sub_populations[0][0], params, num_variables);
 	// free memory
@@ -888,12 +912,12 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	}
 	delete[] sub_populations;
 
-    #ifdef USE_THREADS
+#ifdef USE_THREADS
 	for (int t = 0; t < params.num_threads; t++)
 		delete[] vars_values[t];
 	delete[] vars_values;
 #endif
-    
+
 	//delete[] s_dest;
 	//delete[] s_source;
 
@@ -933,7 +957,7 @@ void init_params(t_parameters& params){
 	params.num_sub_populations = 4;
 	params.sub_population_size = 30;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 50;					// the number of generations
+	params.num_generations = 10;					// the number of generations
 	params.mutation_probability = 0.1;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
@@ -958,7 +982,7 @@ int main(int argc, char* argv[])
 
 	int num_procs = 1;
 	int current_proc_id = 0;
-    
+
 	t_graph *training_graphs = NULL;
 	int num_training_graphs = 0;
 
@@ -991,29 +1015,9 @@ int main(int argc, char* argv[])
 
 #ifdef USE_MPI
 
-	#ifndef  USE_THREADS
-		MPI_Init(&argc, &argv);
-	#else USE_THREADS
-		int provided, flag,claimed, errs;
-		MPI_Init_thread( &argc, &argv, MPI_THREAD_MULTIPLE, &provided );
-
-		MPI_Is_thread_main( &flag );
-		if (!flag) {
-			errs++;
-			printf( "This thread called init_thread but Is_thread_main gave false\n" );fflush(stdout);
-		}
-		else  printf( "This thread called init_thread with thread level %d\n", provided );fflush(stdout);
-		MPI_Query_thread( &claimed );
-		if (claimed != provided) {
-			errs++;
-			printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
-		}
-		else printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
-	#endif
-
-
 	double starttime, endtime, computetime, compute_sum=0, compute_max=0;
 
+	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &current_proc_id);
 
