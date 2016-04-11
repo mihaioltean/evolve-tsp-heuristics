@@ -162,11 +162,15 @@ struct t_parameters{
 	int num_constants;
 	double constants_min, constants_max;   // the array for constants
 	double variables_probability, operators_probability, constants_probability;
-#ifdef USE_THREADS
+};
+//---------------------------------------------------------------------------
+struct run_parameters{
+	char log_file[20];
+	char result_file[20];
 	int num_threads; // num threads.
-#endif
-	//for best performances the number of subpopulations should be multiple of num_threads.
-	// num_thread should no exceed the number of processor cores.
+	int num_procs; // num processes
+	int current_id; // rank
+	int recv_no; // no of receivings  for one process
 };
 //---------------------------------------------------------------------------
 void allocate_chromosome(t_chromosome &c, t_parameters &params)
@@ -566,6 +570,27 @@ void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
 	printf("Fitness = %lf\n", a.fitness);
 }
 //---------------------------------------------------------------------------
+void file_print_chromosome(t_chromosome& a, t_parameters &params, int num_variables, char* filename)
+{
+	FILE* f = fopen(filename, "a");
+	fprintf(f,"The t_chromosome is:\n");
+
+	for (int i = 0; i < params.num_constants; i++)
+		fprintf(f,"constants[%d] = %lf\n", i, a.constants[i]);
+
+	for (int i = 0; i < params.code_length; i++)
+		if (a.prg[i].op < 0)
+			fprintf(f,"%d: %s %d %d\n", i, operators_string[abs(a.prg[i].op) - 1], a.prg[i].adr1, a.prg[i].adr2);
+		else
+		if (a.prg[i].op < num_variables)
+			fprintf(f,"%d: inputs[%d]\n", i, a.prg[i].op);
+		else
+			fprintf(f,"%d: constants[%d]\n", i, a.prg[i].op - num_variables);
+
+	fprintf(f,"Fitness = %lf\n", a.fitness);
+	fclose(f);
+}
+//---------------------------------------------------------------------------
 void compute_local_variables(t_graph &graph, int num_visited, int current_node, int *node_visited, double *vars_values)
 {
 	vars_values[distance_to_nearest_node] = 1E307; // min distance to unvisited
@@ -735,7 +760,7 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 
 //---------------------------------------------------------------------------
 void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_training_graphs,
-						int num_variables, int num_procs, int current_proc_id, int &recv_no)
+						int num_variables, run_parameters &r_params)
 {
 
 	MPI_Request send_request= MPI_REQUEST_NULL;
@@ -813,11 +838,11 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 		char * message;
 		message = new char[40];
 
-		sprintf(message, "pid= %d gen %d best_fitness=%f\n",  current_proc_id,  generation,
+		sprintf(message, "pid= %d gen %d best_fitness=%f\n",  r_params.current_id,  generation,
 			                              sub_populations[best_individual_subpop_index][0].fitness);
 		MPI_File file;
 		int err = MPI_File_open(MPI_COMM_SELF,
-								"fitness_log.txt",
+								r_params.log_file,
 								MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_APPEND,	MPI_INFO_NULL, &file);
 		/*//int err=MPI_File_seek(*file, MPI_SEEK_END,0);
 		//printf("seek end of file in proc %d error %d\n",current_proc_id ,err);
@@ -847,23 +872,23 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			int chromosome_index = rand() % params.sub_population_size;
 			int tag = 0;
 
-
+/*
 			if(generation>0) {
 				if (send_request != MPI_REQUEST_NULL) MPI_Request_free(&send_request);
 				MPI_Wait(&send_request, &status);
-			}
+			}*/
 			sub_populations[source_sub_population_index][chromosome_index].to_string(s_source, params.code_length, params.num_constants);
-			MPI_Isend(s_source, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD,&send_request);
+			//MPI_Isend(s_source, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD,&send_request);
 
 
-			//MPI_Send((void*)s_source, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD);
+			MPI_Send((void*)s_source, size_to_send, MPI_CHAR, (r_params.current_id + 1) % r_params.num_procs, tag, MPI_COMM_WORLD);
 
 
-			int flag;
-			MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
-			if (flag)
+			//int flag;
+			//MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
+			//if (flag)
 			{
-				MPI_Recv(s_dest, size_to_send, MPI_CHAR, !current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &status);
+				MPI_Recv(s_dest, size_to_send, MPI_CHAR, !r_params.current_id? r_params.num_procs - 1 : r_params.current_id - 1, tag, MPI_COMM_WORLD, &status);
 
 				//if (recv_request != MPI_REQUEST_NULL) MPI_Request_free(&recv_request);
 				//MPI_Irecv(s_dest, size_to_send, MPI_CHAR,  !current_proc_id ? num_procs - 1 :  current_proc_id - 1,
@@ -872,7 +897,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 				//MPI_Test(&recv_request, &flag, &status);
 				//if (flag)
 				{
-					recv_no++;
+					r_params.recv_no++;
 					receive_chromosome.from_string(s_dest, params.code_length, params.num_constants);
 					int dest_sub_population_index = rand() % params.num_sub_populations;
 					if (receive_chromosome.fitness < sub_populations[dest_sub_population_index][params.sub_population_size - 1].fitness) {
@@ -895,7 +920,9 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 #endif
 	// print best t_chromosome
 	// any of them can be printed because if we allow enough generations, the populations will become identical
-	print_chromosome(sub_populations[0][0], params, num_variables);
+	//print_chromosome(sub_populations[0][0], params, num_variables);
+	if (r_params.current_id==0)
+		file_print_chromosome(sub_populations[0][0], params, num_variables,r_params.result_file);
 	// free memory
 
 	for (int p = 0; p < params.num_sub_populations; p++) {
@@ -946,11 +973,11 @@ bool allocate_training_graphs(t_graph *&training_graphs, int& num_training_graph
 	return true;
 }
 //--------------------------------------------------------------------
-void init_params(t_parameters& params){
+void init_params(t_parameters& params) {
 	params.num_sub_populations = 4;
-	params.sub_population_size = 30;						    // the number of individuals in population  (must be an even number!)
+	params.sub_population_size = 30;                            // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 100;					// the number of generations
+	params.num_generations = 5;                    // the number of generations
 	params.mutation_probability = 0.1;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
@@ -962,23 +989,28 @@ void init_params(t_parameters& params){
 	params.num_constants = 3; // use 3 constants from -1 ... +1 interval
 	params.constants_min = -1;
 	params.constants_max = 1;
+}
+//--------------------------------------------------------------------
+void init_run_params(run_parameters& params){
 
-#ifdef USE_THREADS
+	strcpy(params.log_file,"log.txt");
+	strcpy(params.result_file,"result.txt");
+	params.current_id=0;
+	params.num_procs=1;
 	params.num_threads = 4;
-#endif
+	params.recv_no = 0;
 }
 //--------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
-	t_parameters params;
-	init_params(params);
+	t_parameters t_params;
+	run_parameters r_params;
+	init_params(t_params);
+	init_run_params(r_params);
 
-	int num_procs = 1;
-	int current_proc_id = 0;
 
 	t_graph *training_graphs = NULL;
 	int num_training_graphs = 0;
-
 
 #ifndef USE_MPI
 	if (allocate_training_graphs(training_graphs, num_training_graphs)) {
@@ -1010,11 +1042,26 @@ int main(int argc, char* argv[])
 
 	double starttime, endtime, computetime, compute_sum=0, compute_max=0;
 
+
 	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-	MPI_Comm_rank(MPI_COMM_WORLD, &current_proc_id);
+	MPI_Comm_size(MPI_COMM_WORLD, &r_params.num_procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &r_params.current_id);
 
 	int  recv_no = 0;
+
+	if (argc>1)
+	t_params.num_generations = ((argc>1)?atoi(argv[1]):5);
+	if (argc>2) {
+		strcpy(r_params.log_file,  argv[2] );
+		strcat(r_params.log_file, argv[1]);
+		strcat(r_params.log_file, ".txt");
+	}
+	if (argc>3) {
+		strcpy(r_params.result_file, argv[3] );
+		strcat(r_params.result_file, argv[1]);
+		strcat(r_params.result_file, ".txt");
+	}
+
 
 	bool alloc_signal = allocate_training_graphs(training_graphs, num_training_graphs);
 	if (alloc_signal) {
@@ -1025,8 +1072,7 @@ int main(int argc, char* argv[])
 		read_sum = read_training_data(training_graphs, num_training_graphs);
 		MPI_Status status;
 		MPI_Allreduce(&read_sum, &verif_read_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-		// printf("  proc ID=%d read_sum=%d, verif_read_sum%d..\n", current_proc_id, read_sum, verif_read_sum);
-		if (verif_read_sum == num_procs) {
+		if (verif_read_sum == r_params.num_procs) {
 			MPI_File file;
 
 		//	int err = MPI_File_open(MPI_COMM_WORLD,
@@ -1040,27 +1086,28 @@ int main(int argc, char* argv[])
 
 			int num_variables = 10;
 
-			srand(current_proc_id); // we run each process with a different seed
+			srand(r_params.current_id); // we run each process with a different seed
 
-			printf("Evolving. proc ID=%d ..\n", current_proc_id);
+			printf("Evolving. proc ID=%d ..\n", r_params.current_id);
 
-			start_steady_state(params, training_graphs, num_training_graphs,
-							   num_variables, num_procs, current_proc_id, recv_no);
+			start_steady_state(t_params, training_graphs, num_training_graphs,
+							   num_variables,  r_params);
 
 		//	MPI_File_close(&file); 
 			endtime = MPI_Wtime();
 			computetime = endtime - starttime;
 
 
-			printf("in proc id = %d recv_no %d \n", current_proc_id, recv_no);
+			printf("in proc id = %d recv_no %d \n", r_params.current_id, r_params.recv_no);
 
 			MPI_Reduce(&computetime, &compute_sum, 1, MPI_DOUBLE, MPI_SUM, 0,  MPI_COMM_WORLD);
 			MPI_Reduce(&computetime, &compute_max, 1, MPI_DOUBLE, MPI_MAX, 0,  MPI_COMM_WORLD);
-			if (current_proc_id==0)
+			if (r_params.current_id==0)
 			{
-
-				printf("average computation time per process is %f seconds\n", compute_sum/num_procs);
-				printf("maximum  computation time of processes is %f seconds\n", compute_max);
+				FILE* f = fopen(r_params.result_file,"a");
+				fprintf(f, "average computation time per process is %f seconds\n", compute_sum/r_params.num_procs);
+				fprintf(f, "maximum  computation time of processes is %f seconds\n", compute_max);
+				fclose(f);
 			}
 
 		}
