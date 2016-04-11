@@ -732,6 +732,7 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 		}
 	}
 }
+
 //---------------------------------------------------------------------------
 void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_training_graphs,
 						int num_variables, int num_procs, int current_proc_id, int &recv_no)
@@ -802,7 +803,6 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 				best_individual_subpop_index = p;
 
 /*		printf("proc_id=%d, generation=%d, best=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
-
 		if (current_proc_id == 0) {
 			FILE* f = fopen("tst_log.txt", "a");
 			fprintf(f, "proc_id=%d, generation=%d, best=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
@@ -811,28 +811,21 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 */
 
 		char * message;
-		message = new char[50];
-		 strcpy(message,"pid ");
-		 char *spid = new char[4]; 
-		sprintf(spid,"%d",current_proc_id); 
-		strcat(message,spid); 
-		strcat(message,"  generation "); 
-		char* sgen = new char[10]; 
-		sprintf(sgen,"%d",generation); 
-		strcat(message,sgen); 
-		strcat(message,"  best fitness");
-		 char* sfit = new char[10]; 
-		sprintf(sfit,"%f",sub_populations[best_individual_subpop_index][0].fitness); 
-		strcat(message,sfit);  strcat(message,"\n");
+		message = new char[40];
 
-
-
-		 MPI_File   file; 
+		sprintf(message, "pid= %d gen %d best_fitness=%f\n",  current_proc_id,  generation,
+			                              sub_populations[best_individual_subpop_index][0].fitness);
+		MPI_File file;
 		int err = MPI_File_open(MPI_COMM_SELF,
 								"fitness_log.txt",
 								MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_APPEND,	MPI_INFO_NULL, &file);
-		MPI_File_write(file, message, (int)strlen(message), MPI_CHAR, &status); 
-		MPI_File_close(&file); 
+		/*//int err=MPI_File_seek(*file, MPI_SEEK_END,0);
+		//printf("seek end of file in proc %d error %d\n",current_proc_id ,err);
+
+		*/
+		err=MPI_File_write(file, message, (int)strlen(message), MPI_CHAR, &status);
+	//	printf("write on file in proc %d message %s of length %d\n",current_proc_id ,message, (int)strlen(message));
+		MPI_File_close(&file);
 
 		// now copy one individual from one population to the next one.
 		// the copied invidual will replace the worst in the next one (if is better)
@@ -856,7 +849,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 
 
 			if(generation>0) {
-			if (send_request != MPI_REQUEST_NULL) MPI_Request_free(&send_request);
+				if (send_request != MPI_REQUEST_NULL) MPI_Request_free(&send_request);
 				MPI_Wait(&send_request, &status);
 			}
 			sub_populations[source_sub_population_index][chromosome_index].to_string(s_source, params.code_length, params.num_constants);
@@ -957,7 +950,7 @@ void init_params(t_parameters& params){
 	params.num_sub_populations = 4;
 	params.sub_population_size = 30;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 10;					// the number of generations
+	params.num_generations = 100;					// the number of generations
 	params.mutation_probability = 0.1;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
@@ -1034,7 +1027,13 @@ int main(int argc, char* argv[])
 		MPI_Allreduce(&read_sum, &verif_read_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 		// printf("  proc ID=%d read_sum=%d, verif_read_sum%d..\n", current_proc_id, read_sum, verif_read_sum);
 		if (verif_read_sum == num_procs) {
+			MPI_File file;
 
+		//	int err = MPI_File_open(MPI_COMM_WORLD,
+		//							"fitness_log.txt",
+		//						MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_SEQUENTIAL,	MPI_INFO_NULL, &file);
+
+		//	printf(" open file ierr=%d ", err);
 			starttime = MPI_Wtime();
 
 			compute_global_variables(training_graphs, num_training_graphs);
@@ -1045,8 +1044,10 @@ int main(int argc, char* argv[])
 
 			printf("Evolving. proc ID=%d ..\n", current_proc_id);
 
-			start_steady_state(params, training_graphs, num_training_graphs, num_variables, num_procs, current_proc_id, recv_no);
+			start_steady_state(params, training_graphs, num_training_graphs,
+							   num_variables, num_procs, current_proc_id, recv_no);
 
+		//	MPI_File_close(&file); 
 			endtime = MPI_Wtime();
 			computetime = endtime - starttime;
 
