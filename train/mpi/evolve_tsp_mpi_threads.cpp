@@ -40,7 +40,8 @@
 //--------------------------------------------------------------------
 
 //#define USE_THREADS
-#define USE_MPI
+//
+ #define USE_MPI
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,7 +51,6 @@
 
 #ifdef USE_THREADS
 #include <thread>
-#include <mutex>
 #endif
 
 #include <float.h>
@@ -90,16 +90,34 @@ char operators_string[num_operators][10] = { "+", "-", "*", "min", "max", "sin",
 #define num_visited_nodes 8          // number of visisted nodes so far
 #define num_total_nodes 9            // total number of nodes of that graph
 
+
 //---------------------------------------------------------------------------
-struct t_graph{
-	int num_nodes;			// number of nodes
-	double **distance;      // distance matrix
-	double min_distance, max_distance, average_distance;
-	double optimal_length;  // known optimal solution
+// problem parameters
+//---------------------------------------------------------------------------
+struct t_parameters{
+	int code_length;             // number of instructions in a t_chromosome
+	int num_generations;
+	int num_sub_populations;       // number of subpopulations
+	int sub_population_size;                // subpopulation size
+	double mutation_probability, crossover_probability;
+	int num_constants;
+	double constants_min, constants_max;   // the array for constants
+	double variables_probability, operators_probability, constants_probability;
+	int num_training_graphs;
 };
-
-
-
+//---------------------------------------------------------------------------
+//execution parameters
+//---------------------------------------------------------------------------
+struct run_parameters{
+	char log_file[20];
+	char result_file[20];
+	int num_threads; // num threads.
+	int num_procs; // num processes
+	int current_id; // rank
+	int recv_no; // no of receivings  for one process
+};
+//---------------------------------------------------------------------------
+// related to chromosomes
 //---------------------------------------------------------------------------
 struct t_code3{
 	int op;				// either a variable, operator or constant;
@@ -153,26 +171,6 @@ struct t_chromosome{
 
 };
 //---------------------------------------------------------------------------
-struct t_parameters{
-	int code_length;             // number of instructions in a t_chromosome
-	int num_generations;
-	int num_sub_populations;       // number of subpopulations
-	int sub_population_size;                // subpopulation size
-	double mutation_probability, crossover_probability;
-	int num_constants;
-	double constants_min, constants_max;   // the array for constants
-	double variables_probability, operators_probability, constants_probability;
-};
-//---------------------------------------------------------------------------
-struct run_parameters{
-	char log_file[20];
-	char result_file[20];
-	int num_threads; // num threads.
-	int num_procs; // num processes
-	int current_id; // rank
-	int recv_no; // no of receivings  for one process
-};
-//---------------------------------------------------------------------------
 void allocate_chromosome(t_chromosome &c, t_parameters &params)
 {
 	c.prg = new t_code3[params.code_length];
@@ -192,169 +190,6 @@ void delete_chromosome(t_chromosome &c)
 		delete[] c.constants;
 		c.constants = NULL;
 	}
-}
-//---------------------------------------------------------------------------
-void allocate_training_data(double **&data, double *&target, int num_training_data, int num_variables)
-{
-	target = new double[num_training_data];
-	data = new double*[num_training_data];
-	for (int i = 0; i < num_training_data; i++)
-		data[i] = new double[num_variables];
-}
-//---------------------------------------------------------------------------
-void allocate_partial_expression_values(double ***&expression_value, int num_training_data, int code_length, int num_threads)
-{
-	// partial values are stored in a matrix of size: code_length x num_training_data
-	// for each thread we have a separate matrix
-	expression_value = new double**[num_threads];
-	for (int t = 0; t < num_threads; t++) {
-		expression_value[t] = new double*[code_length];
-		for (int i = 0; i < code_length; i++)
-			expression_value[t][i] = new double[num_training_data];
-	}
-}
-//---------------------------------------------------------------------------
-void delete_partial_expression_values(double ***&expression_value, int code_length, int num_threads)
-{
-	if (expression_value) {
-		for (int t = 0; t < num_threads; t++) {
-			for (int i = 0; i < code_length; i++)
-				delete[] expression_value[t][i];
-			delete[] expression_value[t];
-		}
-		delete[] expression_value;
-	}
-}
-//---------------------------------------------------------------------------
-
-int read_training_data(t_graph *training_graphs, int num_training_graphs)
-{
-	// training is done on 4 graphs
-	//4 graphs are read
-
-
-
-	int k = 0; // count the graphs
-	{
-		FILE* f = fopen("data//bayg29.tsp", "r");
-		if (!f)
-			return 0;
-
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-		// now read the data
-		for (int i = 0; i < training_graphs[k].num_nodes - 1; i++)
-			for (int j = i; j < training_graphs[k].num_nodes; j++)
-				if (i != j) {
-					fscanf(f, "%lf", &training_graphs[k].distance[i][j]);
-					training_graphs[k].distance[j][i] = training_graphs[k].distance[i][j];
-				}
-				else
-					training_graphs[k].distance[i][i] = 0;
-
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-
-		fclose(f);
-	}
-	{
-		k++;
-		FILE* f = fopen("data//a280.tsp", "r");
-		if (!f)
-			return 0;
-
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
-		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-		fclose(f);
-
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
-
-		delete[] x;
-		delete[] y;
-	}
-	{
-		k++;
-		FILE* f = fopen("data//berlin52.tsp", "r");
-		if (!f)
-			return 0;
-
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
-		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-		fclose(f);
-
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
-
-		delete[] x;
-		delete[] y;
-	}
-	{
-		k++;
-		FILE* f = fopen("data//bier127.tsp", "r");
-		if (!f)
-			return 0;
-
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
-		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-		fclose(f);
-
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
-
-		delete[] x;
-		delete[] y;
-	}	return true;
-}
-//---------------------------------------------------------------------------
-void delete_training_graphs(t_graph *&training_graphs, int num_training_graphs)
-{
-	if (training_graphs)
-		for (int i = 0; i < num_training_graphs; i++) {
-			for (int j = 0; j < training_graphs[i].num_nodes; j++)
-				delete[] training_graphs[i].distance[j];
-			delete[] training_graphs[i].distance;
-		}
-	delete[] training_graphs;
 }
 //---------------------------------------------------------------------------
 void copy_individual(t_chromosome& dest, const t_chromosome& source, t_parameters &params)
@@ -494,7 +329,7 @@ void uniform_crossover(const t_chromosome &parent1, const t_chromosome &parent2,
 		}
 }
 //---------------------------------------------------------------------------
-int sort_function(const void *a, const void *b)
+int comp_function(const void *a, const void *b)
 {// comparator for quick sort
 	if (((t_chromosome *)a)->fitness > ((t_chromosome *)b)->fitness)
 		return 1;
@@ -590,6 +425,154 @@ void file_print_chromosome(t_chromosome& a, t_parameters &params, int num_variab
 	fprintf(f,"Fitness = %lf\n", a.fitness);
 	fclose(f);
 }
+//--------------------------------------------------------------------
+//related to training graphs
+//--------------------------------------------------------------------
+
+struct t_graph{
+	int num_nodes;			// number of nodes
+	double **distance;      // distance matrix
+	double min_distance, max_distance, average_distance;
+	double optimal_length;  // known optimal solution
+};
+//---------------------------------------------------------------------------
+bool allocate_training_graphs(t_graph *&training_graphs, int num_training_graphs){
+	training_graphs = new t_graph[num_training_graphs];
+
+	return true;
+}
+//---------------------------------------------------------------------------
+
+int read_training_data(t_graph *training_graphs, int num_training_graphs)
+{
+	// training is done on 4 graphs
+	//4 graphs are read
+	int k = 0; // count the graphs
+	{
+		FILE* f = fopen("data//bayg29.tsp", "r");
+		if (!f)
+			return 0;
+
+		fscanf(f, "%d", &training_graphs[k].num_nodes);
+		// allocate the memory first
+		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
+		// now read the data
+		for (int i = 0; i < training_graphs[k].num_nodes - 1; i++)
+			for (int j = i; j < training_graphs[k].num_nodes; j++)
+				if (i != j) {
+					fscanf(f, "%lf", &training_graphs[k].distance[i][j]);
+					training_graphs[k].distance[j][i] = training_graphs[k].distance[i][j];
+				}
+				else
+					training_graphs[k].distance[i][i] = 0;
+
+		// now read the length of the shortest path
+		fscanf(f, "%lf", &training_graphs[k].optimal_length);
+
+		fclose(f);
+	}
+	{
+		k++;
+		FILE* f = fopen("data//a280.tsp", "r");
+		if (!f)
+			return 0;
+
+		fscanf(f, "%d", &training_graphs[k].num_nodes);
+		// allocate the memory first
+		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
+
+		double *x = new double[training_graphs[k].num_nodes];
+		double *y = new double[training_graphs[k].num_nodes];
+		int index;
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+		// now read the length of the shortest path
+		fscanf(f, "%lf", &training_graphs[k].optimal_length);
+		fclose(f);
+
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			for (int j = 0; j < training_graphs[k].num_nodes; j++)
+				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+		delete[] x;
+		delete[] y;
+	}
+	{
+		k++;
+		FILE* f = fopen("data//berlin52.tsp", "r");
+		if (!f)
+			return 0;
+
+		fscanf(f, "%d", &training_graphs[k].num_nodes);
+		// allocate the memory first
+		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
+
+		double *x = new double[training_graphs[k].num_nodes];
+		double *y = new double[training_graphs[k].num_nodes];
+		int index;
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+		// now read the length of the shortest path
+		fscanf(f, "%lf", &training_graphs[k].optimal_length);
+		fclose(f);
+
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			for (int j = 0; j < training_graphs[k].num_nodes; j++)
+				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+		delete[] x;
+		delete[] y;
+	}
+	{
+		k++;
+		FILE* f = fopen("data//bier127.tsp", "r");
+		if (!f)
+			return 0;
+
+		fscanf(f, "%d", &training_graphs[k].num_nodes);
+		// allocate the memory first
+		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
+
+		double *x = new double[training_graphs[k].num_nodes];
+		double *y = new double[training_graphs[k].num_nodes];
+		int index;
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+		// now read the length of the shortest path
+		fscanf(f, "%lf", &training_graphs[k].optimal_length);
+		fclose(f);
+
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			for (int j = 0; j < training_graphs[k].num_nodes; j++)
+				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+		delete[] x;
+		delete[] y;
+	}	return 1;
+}
+//---------------------------------------------------------------------------
+void delete_training_graphs(t_graph *&training_graphs, int num_training_graphs)
+{
+	if (training_graphs) {
+		for (int i = 0; i < num_training_graphs; i++) {
+			for (int j = 0; j < training_graphs[i].num_nodes; j++)
+				delete[] training_graphs[i].distance[j];
+			delete[] training_graphs[i].distance;
+		}
+		delete[] training_graphs;
+	}
+}
+//---------------------------------------------------------------------------
+
+
 //---------------------------------------------------------------------------
 void compute_local_variables(t_graph &graph, int num_visited, int current_node, int *node_visited, double *vars_values)
 {
@@ -610,7 +593,9 @@ void compute_local_variables(t_graph &graph, int num_visited, int current_node, 
 	vars_values[average_distance_to_unvisited] /= (double)(graph.num_nodes - num_visited);
 }
 //--------------------------------------------------------------------
-void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs, int num_training_graphs, int num_variables, double * vars_values, double *partial_values_array)
+void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs, int num_training_graphs,
+			 int num_variables, double * vars_values, double *partial_values_array)
+
 {
 	// fitness is the sum of errors over all training graphs.
 	// error is the distance from the optimum
@@ -631,6 +616,7 @@ void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs
 		vars_values[num_total_nodes] = training_graphs[k].num_nodes;
 
 		// initialize memory for the path
+
 		int *tsp_path = new int[training_graphs[k].num_nodes];
 		int *node_visited = new int[training_graphs[k].num_nodes];
 		for (int i = 0; i < training_graphs[k].num_nodes; i++)
@@ -668,6 +654,7 @@ void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs
 
 			tsp_path[count_nodes] = best_node;
 			count_nodes++;
+
 		}
 		// connect the last with the first in the path
 		path_length += training_graphs[k].distance[tsp_path[count_nodes - 1]][tsp_path[0]];
@@ -678,91 +665,122 @@ void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs
 		delete[] node_visited;
 	}
 	individual.fitness /= (double)num_training_graphs; // average over the number of training graphs
+
 }
 //-----------------------------------------------------------------
-#ifdef USE_THREADS
-void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_chromosome ** sub_populations, int generation_index, t_parameters *params, t_graph *training_graphs, int num_training_graphs, int num_variables, double* vars_values)
-#else
-void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_populations, int generation_index, t_parameters *params, t_graph *training_graphs, int num_training_graphs, int num_variables, double* vars_values)
-#endif
-{
-	int pop_index = 0;
-	while (*current_subpop_index < params->num_sub_populations) {// still more subpopulations to evolve?
-#ifdef USE_THREADS
-		while (!mutex->try_lock()) {}// create a lock so that multiple threads will not evolve the same sub population
-		pop_index = *current_subpop_index;
-		(*current_subpop_index)++;
-		mutex->unlock();
-#else
-		pop_index = *current_subpop_index;
-		(*current_subpop_index)++;
-#endif
+// this function evolves in one execution thread a number o sub_population
+// inside the range defined by [ start, stop)
+//-----------------------------------------------------------------
+void evolve_subpopulation_range( int generation_index, t_chromosome ** sub_populations,
+								 t_parameters *params, t_graph *training_graphs,
+								 int num_variables, double* vars_values, int start, int stop){
 
-		// pop_index is the index of the subpopulation evolved by the current thread
-		if (pop_index < params->num_sub_populations) {
-			t_chromosome *a_sub_population = sub_populations[pop_index];
+	for(int pop_index=start; pop_index< stop;pop_index++){
+		t_chromosome *a_sub_population = sub_populations[pop_index];
 
-			t_chromosome offspring1, offspring2;
-			allocate_chromosome(offspring1, *params);
-			allocate_chromosome(offspring2, *params);
+		t_chromosome offspring1, offspring2;
 
-			double *partial_values_array = new double[params->code_length];
+		allocate_chromosome(offspring1, *params);
+		allocate_chromosome(offspring2, *params);
+		double *partial_values_array = new double[params->code_length];
 
-			if (generation_index == 0) {
-				for (int i = 0; i < params->sub_population_size; i++) {
-					generate_random_chromosome(a_sub_population[i], *params, num_variables);
-
-					fitness(a_sub_population[i], params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
-
-				}
-				// sort ascendingly by fitness inside this population
-				qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
+		if (generation_index == 0) {
+			for (int i = 0; i < params->sub_population_size; i++) {
+				generate_random_chromosome(a_sub_population[i], *params, num_variables);
+				fitness(a_sub_population[i], params->code_length, training_graphs, params->num_training_graphs, num_variables,
+						vars_values, partial_values_array);
 			}
-			else // next generations
-				for (int k = 0; k < params->sub_population_size; k += 2) {
-					// we increase by 2 because at each step we create 2 offspring
-
-					// choose the parents using binary tournament
-					int r1 = tournament_selection(a_sub_population, params->sub_population_size, 2);
-					int r2 = tournament_selection(a_sub_population, params->sub_population_size, 2);
-					// crossover
-					double p_0_1 = rand() / double(RAND_MAX); // a random number between 0 and 1
-					if (p_0_1 < params->crossover_probability)
-						one_cut_point_crossover(a_sub_population[r1], a_sub_population[r2], *params, offspring1, offspring2);
-					else {// no crossover so the offspring are a copy of the parents
-						copy_individual(offspring1, a_sub_population[r1], *params);
-						copy_individual(offspring2, a_sub_population[r2], *params);
-					}
-					// mutate the result and compute fitness
-					mutation(offspring1, *params, num_variables);
-					fitness(offspring1, params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
-
-					// mutate the other offspring too
-					mutation(offspring2, *params, num_variables);
-					fitness(offspring2, params->code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
-
-					// replace the worst in the population
-					if (offspring1.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
-						copy_individual(a_sub_population[params->sub_population_size - 1], offspring1, *params);
-						qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
-					}
-					if (offspring2.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
-						copy_individual(a_sub_population[params->sub_population_size - 1], offspring2, *params);
-						qsort((void *)a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), sort_function);
-					}
-				}
-
-			delete_chromosome(offspring1);
-			delete_chromosome(offspring2);
+			// sort ascendingly by fitness inside this population
+			qsort((void *) a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]), comp_function);
 		}
+		else // next generations
+			for (int k = 0; k < params->sub_population_size; k += 2) {
+				// we increase by 2 because at each step we create 2 offspring
+
+				// choose the parents using binary tournament
+				int r1 = tournament_selection(a_sub_population, params->sub_population_size, 2);
+				int r2 = tournament_selection(a_sub_population, params->sub_population_size, 2);
+				// crossover
+				double p_0_1 = rand() / double(RAND_MAX); // a random number between 0 and 1
+				if (p_0_1 < params->crossover_probability)
+					one_cut_point_crossover(a_sub_population[r1], a_sub_population[r2], *params, offspring1, offspring2);
+				else {// no crossover so the offspring are a copy of the parents
+					copy_individual(offspring1, a_sub_population[r1], *params);
+					copy_individual(offspring2, a_sub_population[r2], *params);
+				}
+				// mutate the result and compute fitness
+				mutation(offspring1, *params, num_variables);
+				fitness(offspring1, params->code_length, training_graphs, params->num_training_graphs, num_variables,
+						vars_values, partial_values_array);
+
+				// mutate the other offspring too
+				mutation(offspring2, *params, num_variables);
+				fitness(offspring2, params->code_length, training_graphs, params->num_training_graphs, num_variables,
+						vars_values, partial_values_array);
+
+				// replace the worst in the population
+				if (offspring1.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
+					copy_individual(a_sub_population[params->sub_population_size - 1], offspring1, *params);
+					qsort((void *) a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]),
+						  comp_function);
+				}
+				if (offspring2.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
+					copy_individual(a_sub_population[params->sub_population_size - 1], offspring2, *params);
+					qsort((void *) a_sub_population, params->sub_population_size, sizeof(a_sub_population[0]),
+						  comp_function);
+				}
+			}
+		delete_chromosome(offspring1);
+		delete_chromosome(offspring2);
+
 	}
 }
+//-----------------------------------------------------------------
+// all the sub_populations are evolved
+// this function that works either in case of using threads or in case when threads are not used
+//-----------------------------------------------------------------
+void evolve_subpopulations( run_parameters & r_params, t_chromosome ** sub_populations, int &generation_index,
+							  t_parameters *params, t_graph *training_graphs,
+							  int num_variables, double* vars_values) {
 
-//---------------------------------------------------------------------------
-void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_training_graphs,
-						int num_variables, run_parameters &r_params)
-{
+#ifdef USE_THREADS
+	std::thread **t = new std::thread*[r_params.num_threads];
+#endif
+	int start = 0, stop, step, rest;
 
+	step = params->num_sub_populations / r_params.num_threads;
+	rest = params->num_sub_populations % r_params.num_threads;
+	stop = (rest > 0) ? start + step + 1 : start + step;
+
+#ifdef USE_THREADS
+	for (int i = 0; i < r_params.num_threads; i++) {
+		t[i] = new std::thread(
+				evolve_subpopulation_range, generation_index, sub_populations, params, training_graphs,
+				num_variables, vars_values, start, stop
+		);
+		rest--;
+		start = stop;
+		stop = (rest > 0) ? start + step + 1 : start + step;
+	}
+	for (int i = 0; i < r_params.num_threads; i++) {
+		t[i]->join();
+
+	}
+	for (int i = 0; i < r_params.num_threads; i++) delete t[i];
+	delete[] t;
+#else
+	evolve_subpopulation_range( generation_index, sub_populations, params, training_graphs,
+			num_variables, vars_values, 0, params->num_sub_populations);
+#endif
+}
+
+//--------------------------------------------------------------------
+// MPI interchange
+// this defines the interchange between subpopulations on different MPI processes
+//--------------------------------------------------------------------
+void interchange(run_parameters& r_params, t_parameters&  params,t_chromosome **sub_populations, t_chromosome & receive_chromosome){
+
+#ifdef USE_MPI
 	MPI_Request send_request= MPI_REQUEST_NULL;
 	MPI_Request recv_request= MPI_REQUEST_NULL;
 	MPI_Status status;
@@ -770,161 +788,163 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	int size_to_send = params.code_length * sizeof(t_code3) + params.num_constants * 20 + 20;
 	char *s_source = new char[size_to_send];
 	char *s_dest = new char[size_to_send];
+	for (int i = 0; i < 2; i++) {
+		int source_sub_population_index = rand() % params.num_sub_populations;
+		int chromosome_index = rand() % params.sub_population_size;
+		int tag = 0;
+/*
+			if(generation>0) {
+				if (send_request != MPI_REQUEST_NULL) MPI_Request_free(&send_request);// MPI_Cancel(&send_request);
+				MPI_Wait(&send_request, &status);
+			}*/
+		sub_populations[source_sub_population_index][chromosome_index].to_string(s_source, params.code_length, params.num_constants);
 
+
+		//MPI_Isend(s_source, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD,&send_request);
+
+
+		MPI_Send((void*)s_source, size_to_send, MPI_CHAR, (r_params.current_id + 1) % r_params.num_procs, tag, MPI_COMM_WORLD);
+
+
+		//int flag;
+		//MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
+		//if (flag)
+		{
+			MPI_Recv(s_dest, size_to_send, MPI_CHAR, !r_params.current_id? r_params.num_procs - 1 : r_params.current_id - 1, tag, MPI_COMM_WORLD, &status);
+
+			//if (recv_request != MPI_REQUEST_NULL) MPI_Request_free(&recv_request);
+			//MPI_Irecv(s_dest, size_to_send, MPI_CHAR,  !current_proc_id ? num_procs - 1 :  current_proc_id - 1,
+			//		  tag, MPI_COMM_WORLD,  &recv_request);
+
+			//MPI_Test(&recv_request, &flag, &status);
+			//if (flag)
+			{
+				r_params.recv_no++;
+				receive_chromosome.from_string(s_dest, params.code_length, params.num_constants);
+				int dest_sub_population_index = rand() % params.num_sub_populations;
+				if (receive_chromosome.fitness < sub_populations[dest_sub_population_index][params.sub_population_size - 1].fitness) {
+					copy_individual(sub_populations[dest_sub_population_index][params.sub_population_size - 1],
+									receive_chromosome, params);
+					qsort((void *) sub_populations[dest_sub_population_index], params.sub_population_size,
+						  sizeof(sub_populations[0][0]), comp_function);
+
+				}
+			}
+		}
+	}
+#endif
+}
+//---------------------------------------------------------------------------
+//print to log file if USE_MPI
+//---------------------------------------------------------------------------
+void print_to_log_file(run_parameters r_params, int generation, t_chromosome **sub_populations, int best_individual_subpop_index){
+#ifdef USE_MPI
+	char * message;
+	message = new char[40];
+
+	sprintf(message, "pid= %d gen %d best_fitness=%f\n",  r_params.current_id,  generation,
+	sub_populations[best_individual_subpop_index][0].fitness);
+	MPI_File file;
+	MPI_Status status;
+	int err = MPI_File_open(MPI_COMM_SELF,
+							r_params.log_file,
+							MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_APPEND,	MPI_INFO_NULL, &file);
+	/*//int err=MPI_File_seek(*file, MPI_SEEK_END,0);
+	//printf("seek end of file in proc %d error %d\n",current_proc_id ,err);
+
+	*/
+	err=MPI_File_write(file, message, (int)strlen(message), MPI_CHAR, &status);
+	//	printf("write on file in proc %d message %s of length %d\n",current_proc_id ,message, (int)strlen(message));
+	MPI_File_close(&file);
+#endif
+}
+//---------------------------------------------------------------------------
+// the main evolution function
+//	-  a steady state model -
+// Newly created inviduals replace the worst ones (if the offspring are better) in the same (sub) population.
+//---------------------------------------------------------------------------
+
+void start_steady_state(t_parameters &params, t_graph *training_graphs,	int num_variables, run_parameters &r_params)
+{
 	t_chromosome receive_chromosome;
 	allocate_chromosome(receive_chromosome, params);
 
 
-	// a steady state model -
-	// Newly created inviduals replace the worst ones (if the offspring are better) in the same (sub) population.
+	//populations creation
 
 	// allocate memory for all sub populations
 	t_chromosome **sub_populations; // an array of sub populations
+
 	sub_populations = new t_chromosome*[params.num_sub_populations];
 	for (int p = 0; p < params.num_sub_populations; p++) {
 		sub_populations[p] = new t_chromosome[params.sub_population_size];
 		for (int i = 0; i < params.sub_population_size; i++)
 			allocate_chromosome(sub_populations[p][i], params); // allocate each individual in the subpopulation
 	}
-#ifdef USE_THREADS
-	// allocate memory
-	double** vars_values = new double*[params.num_threads];
-	for (int t = 0; t < params.num_threads; t++)
-		vars_values[t] = new double[num_variables];
 
-	// an array of threads. Each sub population is evolved by a thread
-	std::thread **mep_threads = new std::thread*[params.num_threads];
-	// we create a fixed number of threads and each thread will take and evolve one subpopulation, then it will take another one
-	std::mutex mutex;
-	// we need a mutex to make sure that the same subpopulation will not be evolved twice by different threads
-#else
+	// allocate memory for variables
 	double* vars_values = new double[num_variables];
-#endif
 
 	// evolve for a fixed number of generations
 	for (int generation = 0; generation < params.num_generations; generation++) { // for each generation
+		//int p = 0;
+		//for(int p = 0;p<params.sub_population_size; p++)
+		evolve_subpopulations( r_params, sub_populations, generation, &params, training_graphs,
+								  num_variables, vars_values);
 
-#ifdef USE_THREADS
-		int current_subpop_index = 0;
-		for (int t = 0; t < params.num_threads; t++)
-			mep_threads[t] = new std::thread(evolve_one_subpopulation, &current_subpop_index, &mutex, sub_populations, generation, &params, training_graphs, num_training_graphs, num_variables, vars_values[t]);
-
-		for (int t = 0; t < params.num_threads; t++) {
-			mep_threads[t]->join();
-			delete mep_threads[t];
-		}
-#else
-		//for (int p = 0; p < params.num_sub_populations; p++)
-		int p = 0;
-		evolve_one_subpopulation(&p, sub_populations, generation, &params, training_graphs,
-								 num_training_graphs, num_variables, vars_values);
-
-#endif
 		// find the best individual
 		int best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
-
 		for (int p = 1; p < params.num_sub_populations; p++)
 			if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
 				best_individual_subpop_index = p;
 
-/*		printf("proc_id=%d, generation=%d, best=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
-		if (current_proc_id == 0) {
+
+//print to log file the intermediary results
+#ifndef USE_MPI
 			FILE* f = fopen("tst_log.txt", "a");
-			fprintf(f, "proc_id=%d, generation=%d, best=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
+			fprintf(f, "generation=%d, best=%lf\n", generation, sub_populations[best_individual_subpop_index][0].fitness);
 			fclose(f);
-		}
-*/
+#else
+		print_to_log_file(r_params, generation, sub_populations, best_individual_subpop_index);
+#endif
 
-		char * message;
-		message = new char[40];
 
-		sprintf(message, "pid= %d gen %d best_fitness=%f\n",  r_params.current_id,  generation,
-			                              sub_populations[best_individual_subpop_index][0].fitness);
-		MPI_File file;
-		int err = MPI_File_open(MPI_COMM_SELF,
-								r_params.log_file,
-								MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_APPEND,	MPI_INFO_NULL, &file);
-		/*//int err=MPI_File_seek(*file, MPI_SEEK_END,0);
-		//printf("seek end of file in proc %d error %d\n",current_proc_id ,err);
-
-		*/
-		err=MPI_File_write(file, message, (int)strlen(message), MPI_CHAR, &status);
-	//	printf("write on file in proc %d message %s of length %d\n",current_proc_id ,message, (int)strlen(message));
-		MPI_File_close(&file);
-
-		// now copy one individual from one population to the next one.
-		// the copied invidual will replace the worst in the next one (if is better)
+// now copy one individual from one population to the next one.
+// the copied invidual will replace the worst in the next one (if is better)
 
 		for (int p = 0; p < params.num_sub_populations; p++) {
 			int  k = rand() % params.sub_population_size;// the individual to be copied
 			// replace the worst in the next population (p + 1) - only if is better
 			int index_next_pop = (p + 1) % params.num_sub_populations; // index of the next subpopulation (taken in circular order)
 			if (sub_populations[p][k].fitness < sub_populations[index_next_pop][params.sub_population_size - 1].fitness) {
+
 				copy_individual(sub_populations[index_next_pop][params.sub_population_size - 1], sub_populations[p][k], params);
-				qsort((void *)sub_populations[index_next_pop], params.sub_population_size, sizeof(sub_populations[0][0]), sort_function);
+
+				qsort((void *) sub_populations[index_next_pop], params.sub_population_size,
+					  sizeof(sub_populations[0][0]), comp_function);
 			}
 		}
 
 #ifdef USE_MPI
-		// here I have to copy few individuals from one process to another process
-		for (int i = 0; i < 1; i++) {
-			int source_sub_population_index = rand() % params.num_sub_populations;
-			int chromosome_index = rand() % params.sub_population_size;
-			int tag = 0;
-
-/*
-			if(generation>0) {
-				if (send_request != MPI_REQUEST_NULL) MPI_Request_free(&send_request);
-				MPI_Wait(&send_request, &status);
-			}*/
-			sub_populations[source_sub_population_index][chromosome_index].to_string(s_source, params.code_length, params.num_constants);
-			//MPI_Isend(s_source, size_to_send, MPI_CHAR, (current_proc_id + 1) % num_procs, tag, MPI_COMM_WORLD,&send_request);
-
-
-			MPI_Send((void*)s_source, size_to_send, MPI_CHAR, (r_params.current_id + 1) % r_params.num_procs, tag, MPI_COMM_WORLD);
-
-
-			//int flag;
-			//MPI_Iprobe(!current_proc_id ? num_procs - 1 : current_proc_id - 1, tag, MPI_COMM_WORLD, &flag, &status);
-			//if (flag)
-			{
-				MPI_Recv(s_dest, size_to_send, MPI_CHAR, !r_params.current_id? r_params.num_procs - 1 : r_params.current_id - 1, tag, MPI_COMM_WORLD, &status);
-
-				//if (recv_request != MPI_REQUEST_NULL) MPI_Request_free(&recv_request);
-				//MPI_Irecv(s_dest, size_to_send, MPI_CHAR,  !current_proc_id ? num_procs - 1 :  current_proc_id - 1,
-				//		  tag, MPI_COMM_WORLD,  &recv_request);
-
-				//MPI_Test(&recv_request, &flag, &status);
-				//if (flag)
-				{
-					r_params.recv_no++;
-					receive_chromosome.from_string(s_dest, params.code_length, params.num_constants);
-					int dest_sub_population_index = rand() % params.num_sub_populations;
-					if (receive_chromosome.fitness < sub_populations[dest_sub_population_index][params.sub_population_size - 1].fitness) {
-						copy_individual(sub_populations[dest_sub_population_index][params.sub_population_size - 1],
-										receive_chromosome, params);
-						qsort((void *) sub_populations[dest_sub_population_index], params.sub_population_size,
-							  sizeof(sub_populations[0][0]), sort_function);
-
-					}
-				}
-			}
-		}
-
-
+		// here we have to copy few individuals from one process to the next process
+///////////////////////////////////////////////////////////////////////////////////////
+		interchange(r_params, params,sub_populations, receive_chromosome );
+		///////////////////////////////////////////////////////////////////////////////////////
 #endif
+
 	}
 
-#ifdef USE_THREADS
-	delete[] mep_threads;
-#endif
+
 	// print best t_chromosome
 	// any of them can be printed because if we allow enough generations, the populations will become identical
 	//print_chromosome(sub_populations[0][0], params, num_variables);
-	if (r_params.current_id==0)
+#ifdef USE_MPI
+    if (r_params.current_id==0)
+#endif
 		file_print_chromosome(sub_populations[0][0], params, num_variables,r_params.result_file);
-	// free memory
 
+
+	// free memory - for allocated populations
 	for (int p = 0; p < params.num_sub_populations; p++) {
 		for (int i = 0; i < params.sub_population_size; i++)
 			delete_chromosome(sub_populations[p][i]);
@@ -932,22 +952,15 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	}
 	delete[] sub_populations;
 
-#ifdef USE_THREADS
-	for (int t = 0; t < params.num_threads; t++)
-		delete[] vars_values[t];
-	delete[] vars_values;
-#endif
-
-	//delete[] s_dest;
-	//delete[] s_source;
-
-
 	delete_chromosome(receive_chromosome);
 }
+
+//--------------------------------------------------------------------
+// here we compute the min, max and average distance in a given graph
 //--------------------------------------------------------------------
 void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
 {
-	// here we compute the min, max and average distance in a given graph
+
 	for (int k = 0; k < num_training_graphs; k++) {
 		training_graphs[k].max_distance = training_graphs[k].distance[0][1];
 		training_graphs[k].min_distance = training_graphs[k].distance[0][1];
@@ -965,16 +978,10 @@ void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
 	}
 }
 
-//--------------------------------------------------------------------
 
-bool allocate_training_graphs(t_graph *&training_graphs, int& num_training_graphs){
-	num_training_graphs = 4;
-	training_graphs = new t_graph[num_training_graphs];
-	return true;
-}
 //--------------------------------------------------------------------
 void init_params(t_parameters& params) {
-	params.num_sub_populations = 4;
+	params.num_sub_populations = 8;
 	params.sub_population_size = 30;                            // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
 	params.num_generations = 5;                    // the number of generations
@@ -989,6 +996,8 @@ void init_params(t_parameters& params) {
 	params.num_constants = 3; // use 3 constants from -1 ... +1 interval
 	params.constants_min = -1;
 	params.constants_max = 1;
+
+	params.num_training_graphs = 4;
 }
 //--------------------------------------------------------------------
 void init_run_params(run_parameters& params){
@@ -997,8 +1006,37 @@ void init_run_params(run_parameters& params){
 	strcpy(params.result_file,"result.txt");
 	params.current_id=0;
 	params.num_procs=1;
-	params.num_threads = 4;
+	params.num_threads = 4;// it is recommended to be a number that divide params.num_sub_populations
 	params.recv_no = 0;
+}
+//--------------------------------------------------------------------
+// write the parameters on the result file
+//--------------------------------------------------------------------
+void init_result_file(t_parameters t_params, run_parameters r_params){
+	if (r_params.current_id==0)
+	{
+		FILE* f = fopen(r_params.result_file,"a");
+
+		fprintf(f,"num_sub_populations %d \n", t_params.num_sub_populations );
+		fprintf(f,"sub_population_size %d \n", t_params.sub_population_size );                            // the number of individuals in population  (must be an even number!)
+		fprintf(f,"code_length %d \n", t_params.code_length );
+		fprintf(f,"num_generations %d\n", t_params.num_generations );                    // the number of generations
+		fprintf(f,"mutation_probability %f \n",t_params.mutation_probability );              // mutation probability
+		fprintf(f,"crossover_probability %f \n",t_params.crossover_probability );             // crossover probability
+
+		fprintf(f,"variables_probability %f\n", t_params.variables_probability );
+		fprintf(f,"operators_probability %f\n", t_params.operators_probability );
+		fprintf(f,"constants_probability %f \n", t_params.constants_probability );
+		// / sum of variables_prob + operators_prob + constants_prob MUST BE 1 !
+
+		fprintf(f,"num_constants %d \n", t_params.num_constants); // use 3 constants from -1 ... +1 interval
+		fprintf(f,"constants_min %d\n",t_params.constants_min );
+		fprintf(f,"constants_max %d \n", t_params.constants_max );
+
+		fprintf(f,"num_training_graphs = %d\n\n", t_params.num_training_graphs);
+
+		fclose(f);
+	}
 }
 //--------------------------------------------------------------------
 int main(int argc, char* argv[])
@@ -1007,14 +1045,13 @@ int main(int argc, char* argv[])
 	run_parameters r_params;
 	init_params(t_params);
 	init_run_params(r_params);
-
-
 	t_graph *training_graphs = NULL;
-	int num_training_graphs = 0;
 
 #ifndef USE_MPI
-	if (allocate_training_graphs(training_graphs, num_training_graphs)) {
-		if (!read_training_data(training_graphs, num_training_graphs)) {
+	if (allocate_training_graphs(training_graphs, t_params)) {
+
+		int read_sum = read_training_data(training_graphs, t_params);
+		if (read_sum<1) {
 			printf("Cannot find input file(s)! Please specify the full path!\n");
 			printf("Press Enter ...");
 			getchar();
@@ -1022,15 +1059,15 @@ int main(int argc, char* argv[])
 		}
 
 
-		compute_global_variables(training_graphs, num_training_graphs);
+		compute_global_variables(training_graphs, t_params);
 		int num_variables = 10;
 
 		//srand(current_proc_id); // we run each process with a different seed
 
 		printf("Evolving.  ..\n");
 
-		start_steady_state(params, training_graphs, num_training_graphs, num_variables, num_procs, current_proc_id);
-		delete_training_graphs(training_graphs, num_training_graphs);
+		start_steady_state(t_params, training_graphs,   num_variables,  r_params);
+		delete_training_graphs(training_graphs, t_params);
 
 		printf("Press enter ...");
 		getchar();
@@ -1047,56 +1084,60 @@ int main(int argc, char* argv[])
 	MPI_Comm_size(MPI_COMM_WORLD, &r_params.num_procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &r_params.current_id);
 
-	int  recv_no = 0;
-
+//set the number of generation iff it given as a command line argument
 	if (argc>1)
-	t_params.num_generations = ((argc>1)?atoi(argv[1]):5);
-	if (argc>2) {
+		t_params.num_generations = atoi(argv[1]);
+
+// set the names of the output files depending on the command line arguments
+	char np[20];
+	sprintf(np,"_g%d_p%d_t%d.txt",t_params.num_generations, r_params.num_procs, r_params.num_threads);
+
+	if (argc>2) {// the name for log file
 		strcpy(r_params.log_file,  argv[2] );
-		strcat(r_params.log_file, argv[1]);
-		strcat(r_params.log_file, ".txt");
 	}
-	if (argc>3) {
+	if (argc>3) {// the name for result file
 		strcpy(r_params.result_file, argv[3] );
-		strcat(r_params.result_file, argv[1]);
-		strcat(r_params.result_file, ".txt");
 	}
+	strcat(r_params.result_file, np);
+	strcat(r_params.log_file, np);
+
+// write the parameters values on  the result file
+
+	init_result_file(t_params, r_params);
 
 
-	bool alloc_signal = allocate_training_graphs(training_graphs, num_training_graphs);
+//all processes will read the graphs
+	bool alloc_signal = allocate_training_graphs(training_graphs, t_params.num_training_graphs);
 	if (alloc_signal) {
 
 		//reading graphs
 		int read_sum = 0, verif_read_sum = 0;
-
-		read_sum = read_training_data(training_graphs, num_training_graphs);
-		MPI_Status status;
+		read_sum = read_training_data(training_graphs, t_params.num_training_graphs);
 		MPI_Allreduce(&read_sum, &verif_read_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 		if (verif_read_sum == r_params.num_procs) {
-			MPI_File file;
 
+//an attempt to improve writing into the log file - no to be open and closed each time
+		//	MPI_File file;
 		//	int err = MPI_File_open(MPI_COMM_WORLD,
-		//							"fitness_log.txt",
+		//							"logfile.txt",
 		//						MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_SEQUENTIAL,	MPI_INFO_NULL, &file);
 
 		//	printf(" open file ierr=%d ", err);
+
 			starttime = MPI_Wtime();
 
-			compute_global_variables(training_graphs, num_training_graphs);
-
+			compute_global_variables(training_graphs, t_params.num_training_graphs);
 			int num_variables = 10;
 
-			srand(r_params.current_id); // we run each process with a different seed
+			srand(r_params.current_id+r_params.num_procs); // we run each process with a different seed
 
 			printf("Evolving. proc ID=%d ..\n", r_params.current_id);
-
-			start_steady_state(t_params, training_graphs, num_training_graphs,
-							   num_variables,  r_params);
+		//start the evolution
+			start_steady_state(t_params, training_graphs, num_variables,  r_params);
 
 		//	MPI_File_close(&file); 
 			endtime = MPI_Wtime();
 			computetime = endtime - starttime;
-
 
 			printf("in proc id = %d recv_no %d \n", r_params.current_id, r_params.recv_no);
 
@@ -1105,16 +1146,14 @@ int main(int argc, char* argv[])
 			if (r_params.current_id==0)
 			{
 				FILE* f = fopen(r_params.result_file,"a");
+				fprintf(f, "number of processes = %d \n", r_params.num_procs);
 				fprintf(f, "average computation time per process is %f seconds\n", compute_sum/r_params.num_procs);
 				fprintf(f, "maximum  computation time of processes is %f seconds\n", compute_max);
 				fclose(f);
 			}
-
 		}
-		delete_training_graphs(training_graphs, num_training_graphs);
+		delete_training_graphs(training_graphs, t_params.num_training_graphs);
 	}
-
-
 	MPI_Finalize();
 #endif
 	return 0;
