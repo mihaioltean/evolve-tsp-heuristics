@@ -39,7 +39,7 @@
 
 //--------------------------------------------------------------------
 
-//#define USE_THREADS
+#define USE_THREADS
 #define USE_MPI
 
 #include <stdio.h>
@@ -697,7 +697,7 @@ void evolve_subpopulation_range( int generation_index, t_chromosome ** sub_popul
 
 	for(int pop_index=start; pop_index< stop;pop_index++){
 		t_chromosome *a_sub_population = sub_populations[pop_index];
-
+		//printf("inside evolve range index= %d\n", pop_index);
 		t_chromosome offspring1, offspring2;
 
 		allocate_chromosome(offspring1, *params);
@@ -767,7 +767,7 @@ void evolve_subpopulations( run_parameters & r_params, t_chromosome ** sub_popul
 	std::thread **t = new std::thread*[r_params.num_threads];
 
 	int start = 0, stop, step, rest;
-	printf("debug proc %d threads %d", r_params.current_id, r_params.num_threads);
+
 
 	step = params->num_sub_populations / r_params.num_threads;
 	rest = params->num_sub_populations % r_params.num_threads;
@@ -780,6 +780,7 @@ void evolve_subpopulations( run_parameters & r_params, t_chromosome ** sub_popul
 				generation_index, sub_populations, params, training_graphs,
 				num_variables, vars_values, start, stop
 		);
+		printf("debug proc %d threads no %d created for generation %d\n", r_params.current_id, i, generation_index);
 		rest--;
 		start = stop;
 		stop = (rest > 0) ? start + step + 1 : start + step;
@@ -1133,13 +1134,13 @@ int init_run_params_config_file(run_parameters& r_params) {
 	fscanf(f, "%s",r_params.result_file );      // the name of the result file
 
 #ifdef USE_THREADS
-    fscanf(f, "%d",r_params.num_threads);
+    fscanf(f, "%d",&r_params.num_threads);
 	if (r_params.num_threads == 0) r_params.num_threads = 1;
 #endif
 
 	fclose(f);
 
-	printf("init_run_params_file");
+
 	return 1;
 }
 //--------------------------------------------------------------------
@@ -1284,7 +1285,25 @@ int main(int argc, char* argv[])
 #else
 
 	double starttime, endtime, computetime, compute_sum=0, compute_max=0;
+#ifndef  USE_THREADS
 	MPI_Init(&argc, &argv);
+#else 
+		int provided, flag,claimed, errs;
+		MPI_Init_thread( &argc, &argv, MPI_THREAD_MULTIPLE, &provided );
+
+		MPI_Is_thread_main( &flag );
+		if (!flag) {
+			errs++;
+			printf( "This thread called init_thread but Is_thread_main gave false\n" );fflush(stdout);
+		}
+		else  printf( "This thread called init_thread with thread level %d\n", provided );fflush(stdout);
+		MPI_Query_thread( &claimed );
+		if (claimed != provided) {
+			errs++;
+			printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
+		}
+		else printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
+#endif
 	MPI_Comm_size(MPI_COMM_WORLD, &r_params.num_procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &r_params.current_id);
 
