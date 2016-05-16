@@ -39,7 +39,7 @@
 
 //--------------------------------------------------------------------
 
-#define USE_THREADS
+//#define USE_THREADS
 #define USE_MPI
 
 #include <stdio.h>
@@ -59,6 +59,8 @@
 #ifdef USE_MPI
 #include "mpi.h"
 #endif
+
+#define max_file_name 30
 
 #define num_operators 7
 
@@ -104,8 +106,10 @@ struct t_parameters{
 //execution parameters
 //---------------------------------------------------------------------------
 struct run_parameters{
-	char log_file[20];
-	char result_file[20];
+	char run_config_file[max_file_name];
+	char config_file[max_file_name];
+	char log_file[max_file_name];
+	char result_file[max_file_name];
 	int num_threads; // num threads.
 	int num_procs; // num processes
 	int current_id; // rank
@@ -764,6 +768,7 @@ void evolve_subpopulations( run_parameters & r_params, t_chromosome ** sub_popul
 							  int num_variables, double* vars_values) {
 
 #ifdef USE_THREADS
+	//printf("debug proc %d  before starting generation %d after threads array alloc\n", r_params.current_id, generation_index);
 	std::thread **t = new std::thread*[r_params.num_threads];
 
 	int start = 0, stop, step, rest;
@@ -772,7 +777,7 @@ void evolve_subpopulations( run_parameters & r_params, t_chromosome ** sub_popul
 	step = params->num_sub_populations / r_params.num_threads;
 	rest = params->num_sub_populations % r_params.num_threads;
 	stop = (rest > 0) ? start + step + 1 : start + step;
-
+	//printf("debug proc %d  before starting generation %d\n", r_params.current_id, generation_index);
 
 	for (int i = 0; i < r_params.num_threads; i++) {
 		t[i] = new std::thread(
@@ -780,18 +785,20 @@ void evolve_subpopulations( run_parameters & r_params, t_chromosome ** sub_popul
 				generation_index, sub_populations, params, training_graphs,
 				num_variables, vars_values, start, stop
 		);
-		printf("debug proc %d threads no %d created for generation %d\n", r_params.current_id, i, generation_index);
+
 		rest--;
 		start = stop;
 		stop = (rest > 0) ? start + step + 1 : start + step;
+		if (stop>params->num_sub_populations) stop = params->num_sub_populations;
 	}
 	for (int i = 0; i < r_params.num_threads; i++) {
 		t[i]->join();
-
 	}
+
+//	printf("debug proc %d t generation %d final\n", r_params.current_id, generation_index);
 	for (int i = 0; i < r_params.num_threads; i++) delete t[i];
 	delete[] t;
-
+//	printf("debug proc %d t generation %d final after deleting threads\n", r_params.current_id, generation_index);
 #else
 	evolve_subpopulation_range( generation_index, sub_populations, params, training_graphs,
 			num_variables, vars_values, 0, params->num_sub_populations);
@@ -995,9 +1002,11 @@ void print_num_migrations(run_parameters &r_params){
 							r_params.log_file,
 							MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_APPEND,	MPI_INFO_NULL, &file);
 
-	printf("try to open file %s in proc %d error %d\n",r_params.log_file,r_params.current_id ,err);
+//	printf("try to open file %s in proc %d error %d\n",r_params.log_file,r_params.current_id ,err);
 	err=MPI_File_write(file, message, (int)strlen(message), MPI_CHAR, &status);
-		printf("write on file in proc %d message %s of length %d error %d\n",r_params.current_id ,message, (int)strlen(message),err);
+	MPI_File_sync(file);
+
+		//printf("write on file in proc %d message %s of length %d error %d\n",r_params.current_id ,message, (int)strlen(message),err);
 
 	MPI_File_close(&file);
 #endif
@@ -1005,8 +1014,8 @@ void print_num_migrations(run_parameters &r_params){
 
 //--------------------------------------------------------------------
 void init_run_params(run_parameters& r_params) {
-	strcpy(r_params.log_file, "log");
-	strcpy(r_params.result_file, "result");
+	strcpy(r_params.log_file, "results/log");
+	strcpy(r_params.result_file, "results/result");
 	r_params.current_id = 0;
 	r_params.num_procs = 1;
 	r_params.num_threads = 1;// it is recommended to be a number that divide params.num_sub_populations
@@ -1055,18 +1064,16 @@ void set_name_files(t_parameters& t_params, run_parameters &r_params){
 #else
 	sprintf(np,"_g%d_p%d.txt",t_params.num_generations,r_params.num_procs);
 #endif
-
 #endif
-
 	strcat(r_params.result_file, np);
 	strcat(r_params.log_file, np);
 }
 //--------------------------------------------------------------------
-//init the evolve parameters from a config file
+//init the evolve parameters from a config file (the file name is in r_params.config_file
 //--------------------------------------------------------------------
-int init_params_config_file( t_parameters& params) {
+int init_params_config_file(run_parameters & r_params, t_parameters& params) {
 
-	FILE* f = fopen("config.txt","r");
+	FILE* f = fopen(r_params.config_file,"r");
 	if (!f){
 		return 1; //error - config file does not exist
 	}
@@ -1114,19 +1121,18 @@ int init_params_config_file( t_parameters& params) {
 
 
 	fclose(f);
-	printf("init_params_file");
 	params.num_training_graphs = 4;
 
 	return 1;
 }
 //--------------------------------------------------------------------
-//init the run parameters from a config file
+//init the run parameters from a run_config file
 //--------------------------------------------------------------------
 int init_run_params_config_file(run_parameters& r_params) {
 
 	r_params.recv_no = 0;
 
-	FILE* f = fopen("run_config.txt","r");
+	FILE* f = fopen(r_params.run_config_file,"r");
 	if (!f){
 		return 1; //error - config filr does not exist
 	}
@@ -1144,12 +1150,12 @@ int init_run_params_config_file(run_parameters& r_params) {
 	return 1;
 }
 //--------------------------------------------------------------------
-//
+//init the names of the configuration files
 //--------------------------------------------------------------------
 int init_run_params_command_line(run_parameters& r_params, int argc, char* argv[]) {
 
 	r_params.recv_no = 0;
-
+/* old variant
 #ifdef USE_THREADS
 	if (argc<3) return 0;
 #else
@@ -1167,6 +1173,23 @@ int init_run_params_command_line(run_parameters& r_params, int argc, char* argv[
 		if (r_params.num_threads == 0) r_params.num_threads = 1;
 	}
 #endif
+*/
+
+//	take the names of the config file
+	if (argc < 2)
+		strcpy(r_params.run_config_file, "run_config.txt");
+	else
+	{
+	strcpy(r_params.run_config_file, argv[1]);
+
+	}
+	if (argc<3)
+		strcpy(r_params.config_file,"config.txt");
+	else{
+		strcpy(r_params.config_file, argv[2]);
+
+	}
+
 	return 1;
 }
 
@@ -1198,6 +1221,7 @@ void init_files(t_parameters & t_params, run_parameters &r_params){
 
 		fprintf(f,"num_training_graphs = %d\n", t_params.num_training_graphs);
 		fprintf(f,"_______________________________________________________________\n");
+
 		fclose(f);
 
 
@@ -1234,11 +1258,11 @@ void init_files(t_parameters & t_params, run_parameters &r_params){
 //--------------------------------------------------------------------
 int  main_no_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *training_graphs,int argc, char* argv[]){
 
-	if (!init_run_params_command_line(r_params,  argc, argv))
+	init_run_params_command_line(r_params,  argc, argv);
 	  if  (!init_run_params_config_file(r_params) )
 		  init_run_params(r_params);
 
-	if (!init_params_config_file( t_params))
+	if (!init_params_config_file( r_params, t_params))
 					init_params(t_params);
 
 	set_name_files(t_params, r_params);
@@ -1287,9 +1311,9 @@ int main(int argc, char* argv[])
 	double starttime, endtime, computetime, compute_sum=0, compute_max=0;
 #ifndef  USE_THREADS
 	MPI_Init(&argc, &argv);
-#else 
+#else
 		int provided, flag,claimed, errs;
-		MPI_Init_thread( &argc, &argv, MPI_THREAD_MULTIPLE, &provided );
+		MPI_Init_thread( &argc, &argv,MPI_THREAD_FUNNELED, &provided );
 
 		MPI_Is_thread_main( &flag );
 		if (!flag) {
@@ -1302,26 +1326,27 @@ int main(int argc, char* argv[])
 			errs++;
 			printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
 		}
-		else printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
+		else ;//printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
 #endif
 	MPI_Comm_size(MPI_COMM_WORLD, &r_params.num_procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &r_params.current_id);
 
 
-	if (!init_run_params_command_line(r_params,   argc, argv))
-		if(!init_run_params_config_file(r_params))
-			init_run_params(r_params);
+	init_run_params_command_line(r_params,   argc, argv);
+	if  (!init_run_params_config_file(r_params) )
+		init_run_params(r_params);
 
-	if (!init_params_config_file( t_params))
+	if (!init_params_config_file(r_params, t_params))
 		init_params(t_params);
 
 //adjust the output filenames with params
 	set_name_files(t_params, r_params);
 
+	
 // write the parameters values on  the result file
 	init_files(t_params, r_params);
 
-	printf("debug point proc %d no+threads %d ..\n", r_params.current_id, r_params.num_threads);
+	//printf("debug point proc %d no+threads %d ..\n", r_params.current_id, r_params.num_threads);
 
 //all processes will read the graphs
 	bool alloc_signal = allocate_training_graphs(training_graphs, t_params.num_training_graphs);
