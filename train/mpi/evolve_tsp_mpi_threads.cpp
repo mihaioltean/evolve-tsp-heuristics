@@ -60,7 +60,7 @@
 #include "mpi.h"
 #endif
 
-#define max_file_name 30
+#define max_file_name 50
 
 #define num_operators 7
 
@@ -594,6 +594,19 @@ void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
 }
 
 //---------------------------------------------------------------------------
+void calibrate_vars_values(double * vars_values, t_graph *training_graphs, int k){
+	vars_values[min_distance_in_matrix]     /=  training_graphs[k].max_distance; //in order to reduce to [0,1] range
+	vars_values[max_distance_in_matrix]     /=  training_graphs[k].max_distance; //in order to reduce to [0,1] range
+	vars_values[average_distance_in_matrix] /=  training_graphs[k].max_distance;//in order to reduce to [0,1] range
+
+	vars_values[num_total_nodes]            /=  training_graphs[k].num_nodes ; //in order to reduce to [0,1] range
+
+	vars_values[length_so_far]              /=  training_graphs[k].max_distance;
+	vars_values[num_visited_nodes]          /=  training_graphs[k].num_nodes;
+	vars_values[distance_to_next_node]      /=  training_graphs[k].max_distance;
+
+}
+//---------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------
 void compute_local_variables(t_graph &graph, int num_visited, int current_node, int *node_visited, double *vars_values)
@@ -666,6 +679,9 @@ void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs
 				// consider each unvisited node
 				if (!node_visited[node]) {// not visited yet
 					vars_values[distance_to_next_node] = training_graphs[k].distance[tsp_path[count_nodes - 1]][node];
+
+					calibrate_vars_values(vars_values,training_graphs, k);
+
 					double eval = evaluate(individual, code_length, num_variables, vars_values, partial_values_array);
 					if (eval < min_eval) {
 						best_node = node; // keep the one with minimal evaluation
@@ -939,7 +955,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs,	int num_
 			fprintf(f, "generation=%d, best=%lf\n", generation, sub_populations[best_individual_subpop_index][0].fitness);
 			fclose(f);
 #else
-		print_to_log_file(r_params, generation, sub_populations, best_individual_subpop_index);
+		if (generation%100==0) print_to_log_file(r_params, generation, sub_populations, best_individual_subpop_index);
 #endif
 
 // now copy an individual from one population to the next one.
@@ -1002,7 +1018,7 @@ void print_num_migrations(run_parameters &r_params){
 							r_params.log_file,
 							MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_APPEND,	MPI_INFO_NULL, &file);
 
-//	printf("try to open file %s in proc %d error %d\n",r_params.log_file,r_params.current_id ,err);
+	//printf("try to open file %s in proc %d error %d\n",r_params.log_file,r_params.current_id ,err);
 	err=MPI_File_write(file, message, (int)strlen(message), MPI_CHAR, &status);
 	MPI_File_sync(file);
 
@@ -1014,8 +1030,9 @@ void print_num_migrations(run_parameters &r_params){
 
 //--------------------------------------------------------------------
 void init_run_params(run_parameters& r_params) {
-	strcpy(r_params.log_file, "results/log");
-	strcpy(r_params.result_file, "results/result");
+	strcpy(r_params.log_file, "log");
+	strcpy(r_params.result_file, "result");
+
 	r_params.current_id = 0;
 	r_params.num_procs = 1;
 	r_params.num_threads = 1;// it is recommended to be a number that divide params.num_sub_populations
@@ -1075,7 +1092,7 @@ int init_params_config_file(run_parameters & r_params, t_parameters& params) {
 
 	FILE* f = fopen(r_params.config_file,"r");
 	if (!f){
-		return 1; //error - config file does not exist
+		return 1; //error - config file does not exist r couldn't be opened
 	}
 
 	fscanf(f, "%d",&params.num_sub_populations );
@@ -1123,7 +1140,7 @@ int init_params_config_file(run_parameters & r_params, t_parameters& params) {
 	fclose(f);
 	params.num_training_graphs = 4;
 
-	return 1;
+	return 0;
 }
 //--------------------------------------------------------------------
 //init the run parameters from a run_config file
@@ -1134,7 +1151,7 @@ int init_run_params_config_file(run_parameters& r_params) {
 
 	FILE* f = fopen(r_params.run_config_file,"r");
 	if (!f){
-		return 1; //error - config filr does not exist
+		return 1; //error - config file does not exist or couldn't be opened
 	}
 	fscanf(f, "%s",r_params.log_file );         // the name of the log file
 	fscanf(f, "%s",r_params.result_file );      // the name of the result file
@@ -1146,8 +1163,7 @@ int init_run_params_config_file(run_parameters& r_params) {
 
 	fclose(f);
 
-
-	return 1;
+	return 0;
 }
 //--------------------------------------------------------------------
 //init the names of the configuration files
@@ -1155,25 +1171,6 @@ int init_run_params_config_file(run_parameters& r_params) {
 int init_run_params_command_line(run_parameters& r_params, int argc, char* argv[]) {
 
 	r_params.recv_no = 0;
-/* old variant
-#ifdef USE_THREADS
-	if (argc<3) return 0;
-#else
-	if (argc<2) return 0;
-#endif
-	if (argc > 1) {// the name for log file
-		strcpy(r_params.log_file, argv[1]);
-	}
-	if (argc > 2) {// the name for result file
-		strcpy(r_params.result_file, argv[2]);
-	}
-#ifdef USE_THREADS
-	if (argc > 3) {// the name for result file
-		r_params.num_threads = atoi(argv[3]);
-		if (r_params.num_threads == 0) r_params.num_threads = 1;
-	}
-#endif
-*/
 
 //	take the names of the config file
 	if (argc < 2)
@@ -1183,24 +1180,26 @@ int init_run_params_command_line(run_parameters& r_params, int argc, char* argv[
 	strcpy(r_params.run_config_file, argv[1]);
 
 	}
-	if (argc<3)
+	if (argc < 3)
 		strcpy(r_params.config_file,"config.txt");
 	else{
 		strcpy(r_params.config_file, argv[2]);
 
 	}
-
-	return 1;
+	return 0;
 }
 
 //--------------------------------------------------------------------
 // write the parameters on the result file and on the log file
 //--------------------------------------------------------------------
-void init_files(t_parameters & t_params, run_parameters &r_params){
+int init_files(t_parameters & t_params, run_parameters &r_params){
 	if (r_params.current_id==0)
 	{
 		//init result file
 		FILE* f = fopen(r_params.result_file,"a");
+
+		if (!f) return 1;
+
 		fprintf(f,"_____________________________________________________________\n");
 		fprintf(f,"_____________________________________________________________\n");
 		fprintf(f,"num_sub_populations %d \n", t_params.num_sub_populations );
@@ -1224,9 +1223,11 @@ void init_files(t_parameters & t_params, run_parameters &r_params){
 
 		fclose(f);
 
-
 //init log file
 		f = fopen(r_params.log_file,"a");
+
+		if (!f) return 2;
+
 		fprintf(f,"_____________________________________________________________\n");
 		fprintf(f,"_____________________________________________________________\n");
 		fprintf(f,"num_sub_populations %d \n", t_params.num_sub_populations );
@@ -1249,7 +1250,10 @@ void init_files(t_parameters & t_params, run_parameters &r_params){
 		fprintf(f,"___________________________________________________\n");
 		fclose(f);
 
+
+
 	}
+	return 0;
 }
 
 
@@ -1259,6 +1263,7 @@ void init_files(t_parameters & t_params, run_parameters &r_params){
 int  main_no_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *training_graphs,int argc, char* argv[]){
 
 	init_run_params_command_line(r_params,  argc, argv);
+
 	  if  (!init_run_params_config_file(r_params) )
 		  init_run_params(r_params);
 
@@ -1299,6 +1304,7 @@ int  main_no_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *traini
 //--------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
+
 	t_parameters t_params;
 	run_parameters r_params;
 
@@ -1309,9 +1315,14 @@ int main(int argc, char* argv[])
 #else
 
 	double starttime, endtime, computetime, compute_sum=0, compute_max=0;
+
+
 #ifndef  USE_THREADS
+
 	MPI_Init(&argc, &argv);
 #else
+
+
 		int provided, flag,claimed, errs;
 		MPI_Init_thread( &argc, &argv,MPI_THREAD_FUNNELED, &provided );
 
@@ -1328,25 +1339,30 @@ int main(int argc, char* argv[])
 		}
 		else ;//printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
 #endif
+
+
 	MPI_Comm_size(MPI_COMM_WORLD, &r_params.num_procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &r_params.current_id);
 
 
 	init_run_params_command_line(r_params,   argc, argv);
-	if  (!init_run_params_config_file(r_params) )
+
+	if  (init_run_params_config_file(r_params) )
 		init_run_params(r_params);
 
-	if (!init_params_config_file(r_params, t_params))
+	if (init_params_config_file(r_params, t_params))
 		init_params(t_params);
 
 //adjust the output filenames with params
 	set_name_files(t_params, r_params);
 
-	
-// write the parameters values on  the result file
-	init_files(t_params, r_params);
 
-	//printf("debug point proc %d no+threads %d ..\n", r_params.current_id, r_params.num_threads);
+// write the parameters values on  the result file
+		if (init_files(t_params, r_params)) {
+			printf("result files could not be opend");
+			return 1;
+		};
+
 
 //all processes will read the graphs
 	bool alloc_signal = allocate_training_graphs(training_graphs, t_params.num_training_graphs);
@@ -1410,7 +1426,9 @@ int main(int argc, char* argv[])
 		delete_training_graphs(training_graphs, t_params.num_training_graphs);
 	}
 	MPI_Finalize();
+
 #endif
+
 	return 0;
 }
 //--------------------------------------------------------------------
