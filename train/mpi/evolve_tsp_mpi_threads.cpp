@@ -108,9 +108,6 @@ struct t_graph{
 	double min_distance, max_distance, average_distance;
 	double optimal_length;  // known optimal solution
 };
-
-
-
 //---------------------------------------------------------------------------
 struct t_code3{
 	int op;				// either a variable, operator or constant; 
@@ -227,6 +224,31 @@ struct t_chromosome{
 		strcat(s_dest, tmp_s);
 	}
 	//------------------------------------------------------------------------------
+	void to_string_simplified(char * s_dest, int num_constants)
+	{
+		char tmp_s[100];
+		s_dest[0] = 0;
+		sprintf(tmp_s, "%d ", num_utilized_instructions);
+		strcat(s_dest, tmp_s);
+		for (int i = 0; i < num_utilized_instructions; i++) {
+			sprintf(tmp_s, "%d ", simplified_prg[i].op);
+			strcat(s_dest, tmp_s);
+			sprintf(tmp_s, "%d ", simplified_prg[i].adr1);
+			strcat(s_dest, tmp_s);
+			sprintf(tmp_s, "%d ", simplified_prg[i].adr2);
+			strcat(s_dest, tmp_s);
+		}
+		sprintf(tmp_s, "%d ", num_constants);
+		strcat(s_dest, tmp_s);
+		for (int i = 0; i < num_constants; i++) {
+			sprintf(tmp_s, "%lg ", constants[i]);
+			strcat(s_dest, tmp_s);
+		}
+		sprintf(tmp_s, "%lg ", fitness);
+		strcat(s_dest, tmp_s);
+	}
+	//------------------------------------------------------------------------------
+
 	void from_string(char* s_source, int code_length, int num_constants)
 	{
 		int num_consumed = 0;
@@ -241,7 +263,20 @@ struct t_chromosome{
 		sscanf(s_source, "%lf", &fitness);
 	}
 	//------------------------------------------------------------------------------
+	bool to_file_simplified(char* file_name, int num_constants)
+	{
+		FILE *f = fopen(file_name, "w");
+		if (!f)
+			return false;
+		char s[1000];
 
+		to_string_simplified(s, num_constants);
+		fputs(s, f);
+
+		fclose(f);
+		return true;
+	}
+	//------------------------------------------------------------------------------
 };
 //---------------------------------------------------------------------------
 struct t_parameters{
@@ -455,6 +490,10 @@ void copy_individual(t_chromosome& dest, const t_chromosome& source, t_parameter
 		dest.constants[i] = source.constants[i];
 	dest.fitness = source.fitness;
 	dest.num_utilized_instructions = source.num_utilized_instructions;
+	if (!dest.simplified_prg)
+		dest.simplified_prg = new t_code3[dest.num_utilized_instructions];
+	for (int i = 0; i < source.num_utilized_instructions; i++)
+		dest.simplified_prg[i] = source.simplified_prg[i];
 }
 //---------------------------------------------------------------------------
 void generate_random_chromosome(t_chromosome &a, t_parameters &params, int num_variables) // randomly initializes the individuals
@@ -951,6 +990,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	// print best t_chromosome
 	// any of them can be printed because if we allow enough generations, the populations will become identical
 	print_chromosome(sub_populations[0][0], params, num_variables);
+	sub_populations[0][0].to_file_simplified("best.txt", params.num_constants);
 	// free memory
 
 	for (int p = 0; p < params.num_sub_populations; p++) {
@@ -998,7 +1038,7 @@ int main(int argc, char* argv[])
 	params.num_sub_populations = 1;
 	params.sub_population_size = 300;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 10000;					// the number of generations
+	params.num_generations = 10;					// the number of generations
 	params.mutation_probability = 0.01;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
