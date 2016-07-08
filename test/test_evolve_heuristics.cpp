@@ -527,11 +527,10 @@ int main(int argc, char* argv[])
 		getchar();
 		return 1;
 	}
+
 	double *partial_values_array = new double[a_chromosome.code_length];
 	run(a_chromosome, graphs, num_graphs, num_variables, vars_values, partial_values_array);
 	delete[] partial_values_array;
-
-
 
 	delete[] vars_values;
 	delete_training_graphs(graphs, num_graphs);
