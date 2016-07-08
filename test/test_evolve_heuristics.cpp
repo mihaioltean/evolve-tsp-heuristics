@@ -473,7 +473,7 @@ void run(t_chromosome &individual, t_graph *graphs, int num_graphs,
 				if (!node_visited[node]) {// not visited yet
 					vars_values[distance_to_next_node] = graphs[k].distance[tsp_path[count_nodes - 1]][node];
 
-					calibrate_vars_values(vars_values, graphs, k);
+//					calibrate_vars_values(vars_values, graphs, k);
 
 					double eval = evaluate(individual.prg, individual.code_length - 1, num_variables, vars_values, partial_values_array, individual.constants);
 					if (eval < min_eval) {
