@@ -263,11 +263,14 @@ struct t_chromosome{
 		sscanf(s_source, "%lf", &fitness);
 	}
 	//------------------------------------------------------------------------------
-	bool to_file_simplified(char* file_name, int num_constants)
+	bool to_file_simplified(char* file_name, int code_length, int num_constants)
 	{
 		FILE *f = fopen(file_name, "w");
 		if (!f)
 			return false;
+		
+		simplify(code_length);
+		
 		char s[1000];
 
 		to_string_simplified(s, num_constants);
@@ -490,10 +493,12 @@ void copy_individual(t_chromosome& dest, const t_chromosome& source, t_parameter
 		dest.constants[i] = source.constants[i];
 	dest.fitness = source.fitness;
 	dest.num_utilized_instructions = source.num_utilized_instructions;
+	/*
 	if (!dest.simplified_prg)
 		dest.simplified_prg = new t_code3[dest.num_utilized_instructions];
 	for (int i = 0; i < source.num_utilized_instructions; i++)
 		dest.simplified_prg[i] = source.simplified_prg[i];
+		*/
 }
 //---------------------------------------------------------------------------
 void generate_random_chromosome(t_chromosome &a, t_parameters &params, int num_variables) // randomly initializes the individuals
@@ -655,25 +660,25 @@ double evaluate(t_code3 *prg, int head_index, int num_variables, double *vars_va
 {
 	for (int i = 0; i <= head_index; i++)
 		switch (prg[i].op) {
-		case -1:// +
+		case O_ADDITION:// +
 			partial_values_array[i] = partial_values_array[prg[i].adr1] + partial_values_array[prg[i].adr2];
 			break;
-		case -2:// -
+		case O_SUBTRACTION:// -
 			partial_values_array[i] = partial_values_array[prg[i].adr1] - partial_values_array[prg[i].adr2];
 			break;
-		case -3:// *
+		case O_MULTIPLICATION:// *
 			partial_values_array[i] = partial_values_array[prg[i].adr1] * partial_values_array[prg[i].adr2];
 			break;
-		case -4:// max
-			partial_values_array[i] = partial_values_array[prg[i].adr1] > partial_values_array[prg[i].adr2] ? partial_values_array[prg[i].adr1] : partial_values_array[prg[i].adr2];
-			break;
-		case -5:// min
+		case O_MIN:// min
 			partial_values_array[i] = partial_values_array[prg[i].adr1] < partial_values_array[prg[i].adr2] ? partial_values_array[prg[i].adr1] : partial_values_array[prg[i].adr2];
 			break;
-		case -6:// sin
+		case O_MAX:// max
+			partial_values_array[i] = partial_values_array[prg[i].adr1] > partial_values_array[prg[i].adr2] ? partial_values_array[prg[i].adr1] : partial_values_array[prg[i].adr2];
+			break;
+		case O_SIN:// sin
 			partial_values_array[i] = sin(partial_values_array[prg[i].adr1]);
 			break;
-		case -7:// cos
+		case O_COS:// cos
 			partial_values_array[i] = cos(partial_values_array[prg[i].adr1]);
 			break;
 		default:
@@ -868,6 +873,8 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 
 			delete_chromosome(offspring1);
 			delete_chromosome(offspring2);
+
+			delete[] partial_values_array;
 		}
 	}
 }
@@ -990,7 +997,8 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	// print best t_chromosome
 	// any of them can be printed because if we allow enough generations, the populations will become identical
 	print_chromosome(sub_populations[0][0], params, num_variables);
-	sub_populations[0][0].to_file_simplified("best.txt", params.num_constants);
+	sub_populations[0][0].to_file_simplified("best.txt", params.code_length, params.num_constants);
+
 	// free memory
 
 	for (int p = 0; p < params.num_sub_populations; p++) {
