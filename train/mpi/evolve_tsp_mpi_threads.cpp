@@ -169,7 +169,47 @@ struct t_chromosome{
 		sscanf(s_source, "%lf", &fitness);
 	}
 	//------------------------------------------------------------------------------
-	//---------------------------------------------------------------------------
+	void to_string_simplified(char * s_dest, int num_constants)
+	{
+		char tmp_s[100];
+		s_dest[0] = 0;
+		sprintf(tmp_s, "%d ", num_utilized_instructions);
+		strcat(s_dest, tmp_s);
+		for (int i = 0; i < num_utilized_instructions; i++) {
+			sprintf(tmp_s, "%d ", simplified_prg[i].op);
+			strcat(s_dest, tmp_s);
+			sprintf(tmp_s, "%d ", simplified_prg[i].adr1);
+			strcat(s_dest, tmp_s);
+			sprintf(tmp_s, "%d ", simplified_prg[i].adr2);
+			strcat(s_dest, tmp_s);
+		}
+		sprintf(tmp_s, "%d ", num_constants);
+		strcat(s_dest, tmp_s);
+		for (int i = 0; i < num_constants; i++) {
+			sprintf(tmp_s, "%lg ", constants[i]);
+			strcat(s_dest, tmp_s);
+		}
+		sprintf(tmp_s, "%lg ", fitness);
+		strcat(s_dest, tmp_s);
+	}
+	//------------------------------------------------------------------------------
+	bool to_file_simplified(char* file_name, int code_length, int num_constants)
+	{
+		FILE *f = fopen(file_name, "w");
+		if (!f)
+			return false;
+
+		simplify(code_length);
+
+		char s[1000];
+
+		to_string_simplified(s, num_constants);
+		fputs(s, f);
+
+		fclose(f);
+		return true;
+	}
+	//------------------------------------------------------------------------------
 	void mark(int k, bool* marked)
 		// mark all utilized instructions
 	{
@@ -454,11 +494,11 @@ double evaluate(t_code3 *prg, int head_index, int num_variables, double *vars_va
 		case O_MULTIPLICATION:// *
 			partial_values_array[i] = partial_values_array[prg[i].adr1] * partial_values_array[prg[i].adr2];
 			break;
-		case O_MAX:// max
-			partial_values_array[i] = partial_values_array[prg[i].adr1] > partial_values_array[prg[i].adr2] ? partial_values_array[prg[i].adr1] : partial_values_array[prg[i].adr2];
-			break;
 		case O_MIN:// min
 			partial_values_array[i] = partial_values_array[prg[i].adr1] < partial_values_array[prg[i].adr2] ? partial_values_array[prg[i].adr1] : partial_values_array[prg[i].adr2];
+			break;
+		case O_MAX:// max
+			partial_values_array[i] = partial_values_array[prg[i].adr1] > partial_values_array[prg[i].adr2] ? partial_values_array[prg[i].adr1] : partial_values_array[prg[i].adr2];
 			break;
 		case O_SIN:// sin
 			partial_values_array[i] = sin(partial_values_array[prg[i].adr1]);
@@ -495,10 +535,14 @@ void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
 	printf("Fitness = %lf\n", a.fitness);
 }
 //---------------------------------------------------------------------------
-void file_print_chromosome(t_chromosome& a, t_parameters &params, int num_variables, char* filename)
+bool file_print_chromosome(t_chromosome& a, t_parameters &params, int num_variables, char* filename)
 {
+	
 	FILE* f = fopen(filename, "a");
-	fprintf(f,"The t_chromosome is:\n");
+	if (!f)
+		return false;
+
+	fprintf(f, "The t_chromosome is:\n");
 
 	for (int i = 0; i < params.num_constants; i++)
 		fprintf(f,"constants[%d] = %lf\n", i, a.constants[i]);
@@ -513,7 +557,17 @@ void file_print_chromosome(t_chromosome& a, t_parameters &params, int num_variab
 			fprintf(f,"%d: constants[%d]\n", i, a.prg[i].op - num_variables);
 
 	fprintf(f,"Fitness = %lf\n", a.fitness);
+
+	fprintf(f, "simplified = ");
+	a.simplify(params.code_length);
+
+	char s[1000];
+
+	a.to_string_simplified(s, params.num_constants);
+	fputs(s, f);
+
 	fclose(f);
+	return true;
 }
 //--------------------------------------------------------------------
 //related to training graphs
