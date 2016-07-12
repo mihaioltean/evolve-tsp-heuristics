@@ -421,8 +421,64 @@ void compute_local_variables(t_graph &graph, int num_visited, int current_node, 
 	vars_values[average_distance_to_unvisited] /= (double)(graph.num_nodes - num_visited);
 }
 //---------------------------------------------------------------------------
+double run_nn_heuristic(t_chromosome &individual, t_graph &graph)
+{
 
-void run(t_chromosome &individual, t_graph *graphs, int num_graphs,
+
+	// initialize memory for the path
+
+	int *tsp_path = new int[graph.num_nodes];
+	int *node_visited = new int[graph.num_nodes];
+	for (int i = 0; i < graph.num_nodes; i++)
+		node_visited[i] = 0;
+
+	// init path
+	int count_nodes = 0;
+	tsp_path[0] = 0; // first node in the path is 0;
+	node_visited[0] = 1;
+	count_nodes++;
+	double path_length = 0;
+
+	while (count_nodes < graph.num_nodes) {
+		// fill the path node by node
+		double min_eval = DBL_MAX;
+		int best_node = -1;
+		// compute other statistics
+
+		for (int node = 0; node < graph.num_nodes; node++)
+			// consider each unvisited node
+			if (!node_visited[node]) {// not visited yet
+				double distance_to_next = graph.distance[tsp_path[count_nodes - 1]][node];
+
+				//					calibrate_vars_values(vars_values, graphs, k);
+
+				
+				if (distance_to_next < min_eval) {
+					best_node = node; // keep the one with minimal evaluation
+					min_eval = distance_to_next;
+				}
+			}
+		// add the best next node to the path
+		path_length += graph.distance[tsp_path[count_nodes - 1]][best_node];
+		node_visited[best_node] = 1;
+
+		tsp_path[count_nodes] = best_node;
+		count_nodes++;
+
+	}
+	// connect the last with the first in the path
+	path_length += graph.distance[tsp_path[count_nodes - 1]][tsp_path[0]];
+
+
+	delete[] tsp_path;
+	delete[] node_visited;
+
+	return path_length;
+
+}
+//--------------------------------------------------------------------
+
+double run_gp_heuristic(t_chromosome &individual, t_graph &graph, 
 	int num_variables, double * vars_values, double *partial_values_array)
 
 {
@@ -433,23 +489,19 @@ void run(t_chromosome &individual, t_graph *graphs, int num_graphs,
 	// so we extract only some summarized information from it
 	// we fill the "vars_values" array with this summarized information
 	// a function having vars_values as a parameter will be evolved
-
-	individual.fitness = 0;
-	printf("graph #% || path length || shortest path length || error percent\n");
-
-	for (int k = 0; k < num_graphs; k++) {
+	
 
 		// set the value of variables
-		vars_values[min_distance_in_matrix] = graphs[k].min_distance;
-		vars_values[max_distance_in_matrix] = graphs[k].max_distance;
-		vars_values[average_distance_in_matrix] = graphs[k].average_distance;
-		vars_values[num_total_nodes] = graphs[k].num_nodes;
+		vars_values[min_distance_in_matrix] = graph.min_distance;
+		vars_values[max_distance_in_matrix] = graph.max_distance;
+		vars_values[average_distance_in_matrix] = graph.average_distance;
+		vars_values[num_total_nodes] = graph.num_nodes;
 
 		// initialize memory for the path
 
-		int *tsp_path = new int[graphs[k].num_nodes];
-		int *node_visited = new int[graphs[k].num_nodes];
-		for (int i = 0; i < graphs[k].num_nodes; i++)
+		int *tsp_path = new int[graph.num_nodes];
+		int *node_visited = new int[graph.num_nodes];
+		for (int i = 0; i < graph.num_nodes; i++)
 			node_visited[i] = 0;
 
 		// init path
@@ -459,19 +511,19 @@ void run(t_chromosome &individual, t_graph *graphs, int num_graphs,
 		count_nodes++;
 		double path_length = 0;
 
-		while (count_nodes < graphs[k].num_nodes) {
+		while (count_nodes < graph.num_nodes) {
 			// fill the path node by node
 			double min_eval = DBL_MAX;
 			int best_node = -1;
 			// compute other statistics
 			vars_values[length_so_far] = path_length;
 			vars_values[num_visited_nodes] = count_nodes;
-			compute_local_variables(graphs[k], count_nodes, tsp_path[count_nodes - 1], node_visited, vars_values);
+			compute_local_variables(graph, count_nodes, tsp_path[count_nodes - 1], node_visited, vars_values);
 
-			for (int node = 0; node < graphs[k].num_nodes; node++)
+			for (int node = 0; node < graph.num_nodes; node++)
 				// consider each unvisited node
 				if (!node_visited[node]) {// not visited yet
-					vars_values[distance_to_next_node] = graphs[k].distance[tsp_path[count_nodes - 1]][node];
+					vars_values[distance_to_next_node] = graph.distance[tsp_path[count_nodes - 1]][node];
 
 //					calibrate_vars_values(vars_values, graphs, k);
 
@@ -482,7 +534,7 @@ void run(t_chromosome &individual, t_graph *graphs, int num_graphs,
 					}
 				}
 			// add the best next node to the path
-			path_length += graphs[k].distance[tsp_path[count_nodes - 1]][best_node];
+			path_length += graph.distance[tsp_path[count_nodes - 1]][best_node];
 			node_visited[best_node] = 1;
 
 			tsp_path[count_nodes] = best_node;
@@ -490,15 +542,14 @@ void run(t_chromosome &individual, t_graph *graphs, int num_graphs,
 
 		}
 		// connect the last with the first in the path
-		path_length += graphs[k].distance[tsp_path[count_nodes - 1]][tsp_path[0]];
-		individual.fitness += (path_length - graphs[k].optimal_length) / graphs[k].optimal_length * 100;
-		// keep it in percent from the optimal solution, otherwise we have scalling problems
-		printf("[%d]  %lf  %lf %lf\n", k, path_length, graphs[k].optimal_length, (path_length - graphs[k].optimal_length) / graphs[k].optimal_length * 100);
+		path_length += graph.distance[tsp_path[count_nodes - 1]][tsp_path[0]];
+		
 
 		delete[] tsp_path;
 		delete[] node_visited;
-	}
-	individual.fitness /= (double)num_graphs; // average over the number of training graphs
+	
+		return path_length;
+	
 }
 //--------------------------------------------------------------------
 int main(int argc, char* argv[])
@@ -529,7 +580,14 @@ int main(int argc, char* argv[])
 	}
 
 	double *partial_values_array = new double[a_chromosome.code_length];
-	run(a_chromosome, graphs, num_graphs, num_variables, vars_values, partial_values_array);
+
+	printf("graph #% || GP length || NN length || shortest path length || GP % || NN % \n");
+
+	for (int k = 0; k < num_graphs; k++) {
+		double path_length_gp = run_gp_heuristic(a_chromosome, graphs[k], num_variables, vars_values, partial_values_array);
+		double path_length_nn = run_nn_heuristic(a_chromosome, graphs[k]);
+		printf("[%d]  %lf  %lf %lf %lf %lf\n", k, path_length_gp, path_length_nn, graphs[k].optimal_length, (path_length_gp - graphs[k].optimal_length) / graphs[k].optimal_length * 100, (path_length_nn - graphs[k].optimal_length) / graphs[k].optimal_length * 100);
+	}
 	delete[] partial_values_array;
 
 	delete[] vars_values;
