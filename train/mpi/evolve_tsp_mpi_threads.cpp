@@ -211,28 +211,28 @@ struct t_chromosome{
 	}
 	//------------------------------------------------------------------------------
 	void mark(int k, bool* marked)
-		// mark all utilized instructions
+	// mark all utilized instructions
 	{
 		if ((prg[k].op < 0) && !marked[k]) {
 			mark(prg[k].adr1, marked);
 
 			switch (prg[k].op) {
-			case O_ADDITION:
-				mark(prg[k].adr2, marked);
-				break;
-			case O_SUBTRACTION:
-				mark(prg[k].adr2, marked);
-				break;
-			case O_MULTIPLICATION:
-				mark(prg[k].adr2, marked);
-				break;
-			case O_MIN:
-				mark(prg[k].adr2, marked);
-				break;
-			case O_MAX:
-				mark(prg[k].adr2, marked);
-				break;
-				// sin, cos are already marked because they have only 1 parameter
+				case O_ADDITION:
+					mark(prg[k].adr2, marked);
+					break;
+				case O_SUBTRACTION:
+					mark(prg[k].adr2, marked);
+					break;
+				case O_MULTIPLICATION:
+					mark(prg[k].adr2, marked);
+					break;
+				case O_MIN:
+					mark(prg[k].adr2, marked);
+					break;
+				case O_MAX:
+					mark(prg[k].adr2, marked);
+					break;
+					// sin, cos are already marked because they have only 1 parameter
 			}
 		}
 		marked[k] = true;
@@ -454,8 +454,8 @@ void uniform_crossover(const t_chromosome &parent1, const t_chromosome &parent2,
 			offspring1.constants[i] = parent2.constants[i];
 			offspring2.constants[i] = parent1.constants[i];
 		}
-		offspring1.simplify(params.code_length);
-		offspring2.simplify(params.code_length);
+	offspring1.simplify(params.code_length);
+	offspring2.simplify(params.code_length);
 
 }
 //---------------------------------------------------------------------------
@@ -485,33 +485,33 @@ double evaluate(t_code3 *prg, int head_index, int num_variables, double *vars_va
 {
 	for (int i = 0; i <= head_index; i++)
 		switch (prg[i].op) {
-		case O_ADDITION:// +
-			partial_values_array[i] = partial_values_array[prg[i].adr1] + partial_values_array[prg[i].adr2];
-			break;
-		case O_SUBTRACTION:// -
-			partial_values_array[i] = partial_values_array[prg[i].adr1] - partial_values_array[prg[i].adr2];
-			break;
-		case O_MULTIPLICATION:// *
-			partial_values_array[i] = partial_values_array[prg[i].adr1] * partial_values_array[prg[i].adr2];
-			break;
-		case O_MIN:// min
-			partial_values_array[i] = partial_values_array[prg[i].adr1] < partial_values_array[prg[i].adr2] ? partial_values_array[prg[i].adr1] : partial_values_array[prg[i].adr2];
-			break;
-		case O_MAX:// max
-			partial_values_array[i] = partial_values_array[prg[i].adr1] > partial_values_array[prg[i].adr2] ? partial_values_array[prg[i].adr1] : partial_values_array[prg[i].adr2];
-			break;
-		case O_SIN:// sin
-			partial_values_array[i] = sin(partial_values_array[prg[i].adr1]);
-			break;
-		case O_COS:// cos
-			partial_values_array[i] = cos(partial_values_array[prg[i].adr1]);
-			break;
-		default:
-			if (prg[i].op < num_variables)
-				partial_values_array[i] = vars_values[prg[i].op];
-			else
-				partial_values_array[i] = constants[prg[i].op - num_variables];
-	}
+			case O_ADDITION:// +
+				partial_values_array[i] = partial_values_array[prg[i].adr1] + partial_values_array[prg[i].adr2];
+				break;
+			case O_SUBTRACTION:// -
+				partial_values_array[i] = partial_values_array[prg[i].adr1] - partial_values_array[prg[i].adr2];
+				break;
+			case O_MULTIPLICATION:// *
+				partial_values_array[i] = partial_values_array[prg[i].adr1] * partial_values_array[prg[i].adr2];
+				break;
+			case O_MIN:// min
+				partial_values_array[i] = partial_values_array[prg[i].adr1] < partial_values_array[prg[i].adr2] ? partial_values_array[prg[i].adr1] : partial_values_array[prg[i].adr2];
+				break;
+			case O_MAX:// max
+				partial_values_array[i] = partial_values_array[prg[i].adr1] > partial_values_array[prg[i].adr2] ? partial_values_array[prg[i].adr1] : partial_values_array[prg[i].adr2];
+				break;
+			case O_SIN:// sin
+				partial_values_array[i] = sin(partial_values_array[prg[i].adr1]);
+				break;
+			case O_COS:// cos
+				partial_values_array[i] = cos(partial_values_array[prg[i].adr1]);
+				break;
+			default:
+				if (prg[i].op < num_variables)
+					partial_values_array[i] = vars_values[prg[i].op];
+				else
+					partial_values_array[i] = constants[prg[i].op - num_variables];
+		}
 
 	return partial_values_array[head_index]; // last gene is the one providing the output
 }
@@ -537,7 +537,7 @@ void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
 //---------------------------------------------------------------------------
 bool file_print_chromosome(t_chromosome& a, t_parameters &params, int num_variables, char* filename)
 {
-	
+
 	FILE* f = fopen(filename, "a");
 	if (!f)
 		return false;
@@ -925,8 +925,8 @@ void evolve_subpopulation_range( int generation_index, t_chromosome ** sub_popul
 // this function that works either in case of using threads or in case when threads are not used
 //-----------------------------------------------------------------
 void evolve_subpopulations( run_parameters & r_params, t_chromosome ** sub_populations, int generation_index,
-							  t_parameters *params, t_graph *training_graphs,
-							  int num_variables, double* vars_values) {
+							t_parameters *params, t_graph *training_graphs,
+							int num_variables, double* vars_values) {
 
 #ifdef USE_THREADS
 	//printf("debug proc %d  before starting generation %d after threads array alloc\n", r_params.current_id, generation_index);
@@ -962,7 +962,7 @@ void evolve_subpopulations( run_parameters & r_params, t_chromosome ** sub_popul
 //	printf("debug proc %d t generation %d final after deleting threads\n", r_params.current_id, generation_index);
 #else
 	evolve_subpopulation_range( generation_index, sub_populations, params, training_graphs,
-			num_variables, vars_values, 0, params->num_sub_populations);
+								num_variables, vars_values, 0, params->num_sub_populations);
 #endif
 }
 
@@ -985,10 +985,10 @@ void interchange(run_parameters& r_params, t_parameters&  params,t_chromosome **
 		int chromosome_index = rand() % params.sub_population_size;
 		int tag = 0;
 
-			/*if(generation>0) {
-				if (send_request != MPI_REQUEST_NULL) MPI_Cancel(&send_request);//MPI_Request_free(&send_request);//
-				//MPI_Wait(&send_request, &status);
-			}*/
+		/*if(generation>0) {
+            if (send_request != MPI_REQUEST_NULL) MPI_Cancel(&send_request);//MPI_Request_free(&send_request);//
+            //MPI_Wait(&send_request, &status);
+        }*/
 		sub_populations[source_sub_population_index][chromosome_index].to_string(s_source, params.code_length, params.num_constants);
 
 		//MPI_Isend(s_source, size_to_send, MPI_CHAR, (r_params.current_id + 1) % r_params.num_procs, tag, MPI_COMM_WORLD,&send_request);
@@ -1026,33 +1026,47 @@ void interchange(run_parameters& r_params, t_parameters&  params,t_chromosome **
 //---------------------------------------------------------------------------
 //print to log file if USE_MPI
 //---------------------------------------------------------------------------
-void print_to_log_file(run_parameters& r_params, int generation, t_chromosome **sub_populations, int best_individual_subpop_index) {
-#ifdef USE_MPI
-	char *message;
-	message = new char[40];
+int print_to_log_file(t_parameters &params, run_parameters& r_params, int generation, t_chromosome **sub_populations, int best_individual_subpop_index) {
+/*
+ * the function return an error code
+ * ->0 means no errors
+ */
 
-	sprintf(message, "pid= %d gen %d best_fitness=%f\n", r_params.current_id, generation,
-			sub_populations[best_individual_subpop_index][0].fitness);
+    #ifdef USE_MPI
+	char message[1040];
+	char expression[1000];
+
+	sub_populations[best_individual_subpop_index][0].simplify(params.code_length);
+
+	sub_populations[best_individual_subpop_index][0].to_string_simplified(expression, params.num_constants);
+
+	sprintf(message, "pid= %d gen %d best_fitness=%f simplified = %s\n", r_params.current_id, generation,
+			sub_populations[best_individual_subpop_index][0].fitness, expression );
 	MPI_File file;
 	MPI_Status status;
 
 	int err;
 	//while (err)
 	{
-	err = MPI_File_open(MPI_COMM_SELF,
-						r_params.log_file,
-						MPI_MODE_CREATE | MPI_MODE_WRONLY | MPI_MODE_APPEND, MPI_INFO_NULL, &file);
+		err = MPI_File_open(MPI_COMM_SELF,
+							r_params.log_file,
+							MPI_MODE_CREATE | MPI_MODE_WRONLY | MPI_MODE_APPEND, MPI_INFO_NULL, &file);
 
 
 	}
-	/*//int err=MPI_File_seek(*file, MPI_SEEK_END,0);
-	//printf("seek end of file in proc %d error %d\n",current_proc_id ,err);
+	//int err=MPI_File_seek(*file, MPI_SEEK_END,0);
 
-	*/
-	err = MPI_File_write(file, message, (int) strlen(message), MPI_CHAR, &status);
-	//	printf("write on file in proc %d message %s of length %d\n",current_proc_id ,message, (int)strlen(message));
+	if (err) printf("try to open the file %s in proc %d with error %d\n",r_params.log_file, r_params.current_id,err);
+	else {
+		err = MPI_File_write(file, message, (int) strlen(message), MPI_CHAR, &status);
+
+		if (err)
+			printf("write on file %s with error= %d in proc %d message %s of length %d\n", r_params.log_file, err,
+				   r_params.current_id, message, (int) strlen(message));
+	}
 	MPI_File_close(&file);
 
+	return  err;
 #endif
 }
 //---------------------------------------------------------------------------
@@ -1086,7 +1100,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs,	int num_
 		//int p = 0;
 		//for(int p = 0;p<params.sub_population_size; p++)
 		evolve_subpopulations( r_params, sub_populations, generation, &params, training_graphs,
-								  num_variables, vars_values);
+							   num_variables, vars_values);
 
 		// find the best individual
 		int best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
@@ -1096,11 +1110,14 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs,	int num_
 
 //print to log file the intermediary results
 #ifndef USE_MPI
-			FILE* f = fopen("tst_log.txt", "a");
+		FILE* f = fopen("tst_log.txt", "a");
 			fprintf(f, "generation=%d, best=%lf\n", generation, sub_populations[best_individual_subpop_index][0].fitness);
 			fclose(f);
 #else
-		if (generation%100==0) print_to_log_file(r_params, generation, sub_populations, best_individual_subpop_index);
+		if (generation%10==0) {
+			int err = print_to_log_file(params, r_params, generation, sub_populations, best_individual_subpop_index);
+			if (err) printf("error while writing to log file inside process %d \n", r_params.current_id);
+		}
 #endif
 
 // now copy an individual from one population to the next one.
@@ -1129,7 +1146,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs,	int num_
 	// any of them can be printed because if we allow enough generations, the populations will become identical
 	//print_chromosome(sub_populations[0][0], params, num_variables);
 #ifdef USE_MPI
-    if (r_params.current_id==0)
+	if (r_params.current_id==0)
 #endif
 		file_print_chromosome(sub_populations[0][0], params, num_variables,r_params.result_file);
 
@@ -1152,8 +1169,9 @@ void print_num_migrations(run_parameters &r_params){
 	char * message;
 	message = new char[40];
 
-	sprintf(message,"in proc id = %d recv_no %d \n", r_params.current_id, r_params.recv_no);
+	MPI_Barrier(MPI_COMM_WORLD);
 
+	sprintf(message,"in proc id = %d recv_no=%d\n", r_params.current_id, r_params.recv_no);
 
 	//sprintf(message, "pid= %d gen %d best_fitness=%f\n",  r_params.current_id,  generation,
 	//		sub_populations[best_individual_subpop_index][0].fitness);
@@ -1163,13 +1181,21 @@ void print_num_migrations(run_parameters &r_params){
 							r_params.log_file,
 							MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_APPEND,	MPI_INFO_NULL, &file);
 
-	//printf("try to open file %s in proc %d error %d\n",r_params.log_file,r_params.current_id ,err);
-	err=MPI_File_write(file, message, (int)strlen(message), MPI_CHAR, &status);
-	MPI_File_sync(file);
 
-		//printf("write on file in proc %d message %s of length %d error %d\n",r_params.current_id ,message, (int)strlen(message),err);
+	if (err) printf("try to open file %s in proc %d error %d\n",r_params.log_file,r_params.current_id ,err);
+	else {
+		err =   MPI_File_write(file, message, (int) strlen(message), MPI_CHAR, &status);
+		if(err)
+		printf(" tried in proc %d print to file %s the message %s with status(no of char written) = %lu\n", r_params.current_id, r_params.log_file, message, status._ucount);
+	}
+//	MPI_Barrier(MPI_COMM_WORLD);
+//	MPI_File_sync(file);
+
+	//printf("write on file in proc %d message %s of length %d error %d\n",r_params.current_id ,message, (int)strlen(message),err);
 
 	MPI_File_close(&file);
+	//MPI_Barrier(MPI_COMM_WORLD);
+	//MPI_File_sync(file);
 #endif
 }
 
@@ -1213,7 +1239,7 @@ void set_name_files(t_parameters& t_params, run_parameters &r_params){
 
 #ifndef USE_MPI
 
-#ifdef USE_THREADS
+	#ifdef USE_THREADS
 	sprintf(np, "_g%d_t%d.txt", t_params.num_generations, r_params.num_threads);
 #else
 	sprintf(np,"_g%d.txt",t_params.num_generations);
@@ -1302,7 +1328,7 @@ int init_run_params_config_file(run_parameters& r_params) {
 	fscanf(f, "%s",r_params.result_file );      // the name of the result file
 
 #ifdef USE_THREADS
-    fscanf(f, "%d",&r_params.num_threads);
+	fscanf(f, "%d",&r_params.num_threads);
 	if (r_params.num_threads == 0) r_params.num_threads = 1;
 #endif
 
@@ -1322,7 +1348,7 @@ int init_run_params_command_line(run_parameters& r_params, int argc, char* argv[
 		strcpy(r_params.run_config_file, "run_config.txt");
 	else
 	{
-	strcpy(r_params.run_config_file, argv[1]);
+		strcpy(r_params.run_config_file, argv[1]);
 
 	}
 	if (argc < 3)
@@ -1409,11 +1435,11 @@ int  main_no_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *traini
 
 	init_run_params_command_line(r_params,  argc, argv);
 
-	  if  (!init_run_params_config_file(r_params) )
-		  init_run_params(r_params);
+	if  (!init_run_params_config_file(r_params) )
+		init_run_params(r_params);
 
 	if (!init_params_config_file( r_params, t_params))
-					init_params(t_params);
+		init_params(t_params);
 
 	set_name_files(t_params, r_params);
 
@@ -1442,7 +1468,7 @@ int  main_no_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *traini
 		return 0;
 	}
 	else
-	return 1;
+		return 1;
 
 }
 //--------------------------------------------------------------------
@@ -1468,7 +1494,7 @@ int main(int argc, char* argv[])
 #else
 
 
-		int provided, flag,claimed, errs;
+	int provided, flag,claimed, errs;
 		MPI_Init_thread( &argc, &argv,MPI_THREAD_FUNNELED, &provided );
 
 		MPI_Is_thread_main( &flag );
@@ -1503,10 +1529,10 @@ int main(int argc, char* argv[])
 
 
 // write the parameters values on  the result file
-		if (init_files(t_params, r_params)) {
-			printf("result files could not be opend");
-			return 1;
-		};
+	if (init_files(t_params, r_params)) {
+		printf("result files could not be opend");
+		return 1;
+	};
 
 
 //all processes will read the graphs
@@ -1519,13 +1545,13 @@ int main(int argc, char* argv[])
 		MPI_Allreduce(&read_sum, &verif_read_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 		if (verif_read_sum == r_params.num_procs) {
 
-		//an attempt to improve writing into the log file - no to be open and closed each time
-		//	MPI_File file;
-		//	int err = MPI_File_open(MPI_COMM_WORLD,
-		//							"logfile.txt",
-		//						MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_SEQUENTIAL,	MPI_INFO_NULL, &file);
+			//an attempt to improve writing into the log file - no to be open and closed each time
+			//	MPI_File file;
+			//	int err = MPI_File_open(MPI_COMM_WORLD,
+			//							"logfile.txt",
+			//						MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_SEQUENTIAL,	MPI_INFO_NULL, &file);
 
-		//	printf(" open file ierr=%d ", err);
+			//	printf(" open file ierr=%d ", err);
 
 			starttime = MPI_Wtime();
 
@@ -1535,10 +1561,10 @@ int main(int argc, char* argv[])
 			srand(r_params.current_id+r_params.num_procs); // we run each process with a different seed
 
 			printf("Evolving. proc ID=%d ..\n", r_params.current_id);
-		//start the evolution
+			//start the evolution
 			start_steady_state(t_params, training_graphs, num_variables,  r_params);
 
-		//	MPI_File_close(&file);
+			//	MPI_File_close(&file);
 
 			endtime = MPI_Wtime();
 			computetime = endtime - starttime;
@@ -1562,6 +1588,7 @@ int main(int argc, char* argv[])
 
 			print_num_migrations(r_params);
 
+			MPI_Barrier(MPI_COMM_WORLD);
 			if (r_params.current_id==0) {
 				FILE *f = fopen(r_params.log_file, "a");
 				fprintf(f, "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
