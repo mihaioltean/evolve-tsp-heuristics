@@ -1056,7 +1056,10 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 	}
 	//int err=MPI_File_seek(*file, MPI_SEEK_END,0);
 
-	if (err) printf("try to open the file %s in proc %d with error %d\n",r_params.log_file, r_params.current_id,err);
+	if (err) {
+		printf("try to open the file %s in proc %d with error %d\n", r_params.log_file, r_params.current_id, err);
+		MPI_Abort(MPI_COMM_WORLD, err);
+	}
 	else {
 		err = MPI_File_write(file, message, (int) strlen(message), MPI_CHAR, &status);
 
@@ -1530,7 +1533,7 @@ int main(int argc, char* argv[])
 
 // write the parameters values on  the result file
 	if (init_files(t_params, r_params)) {
-		printf("result files could not be opend");
+		printf("result and log files could not be opend");
 		return 1;
 	};
 
