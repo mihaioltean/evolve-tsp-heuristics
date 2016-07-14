@@ -9,18 +9,31 @@
 
 //   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //---------------------------------------------------------------------------
-//   Each subpopulation is evolved in a separate thread
+//   On each MPI process separate subpopulation is created.
+//   Each subpopulation is evolved using a set of threads if USE_THREADS option is used.
 //   The subpopulations have a circular structure
 //   At the end of each generation we move, from each subpopulation, some individuals in the next one
 
 //   I recommend to check the basic variant first (without subpopulations and threads)
 
-//   Compiled with Microsoft Visual C++ 2013
-//   Also compiled with XCode 5.
+//
+//   Compiled inside  CLion 1.2.5. configured to support MPI
 //   Requires C++11 or newer (for thread support)
 
-//   how to use it:
-//   just create an empty console project and add this file to the project
+//   How to use it:
+//   the program can use a set of implicit parameters;
+//   if you want to explicitly define the parameters: populations size, no of generation, etc. you should
+//   create configuration files: "config.txt" and "run_config.txt" - or use other file_names that are given as command line arguments
+//   "run_config.txt" specifies the name of the log file; the name of the result file; and the no of threads (if threads are used)
+//   "config.txt" specifies: no of sub_population, sub_population_size, code_length, num_generations, mutation_probability,
+//   crossover_probability, variables_probability, operators_probability, constants_probability, no constants,
+//   constants_min ,constants_max, no training_graphs
+//
+//  if MPI is used than
+//  it could be compiled with
+//  mpicxx
+//  and executed with
+//  mpirun
 
 //   More info at:  http://www.mep.cs.ubbcluj.ro
 
@@ -1189,7 +1202,8 @@ void print_num_migrations(run_parameters &r_params){
 	else {
 		err =   MPI_File_write(file, message, (int) strlen(message), MPI_CHAR, &status);
 		if(err)
-		printf(" tried in proc %d print to file %s the message %s with status(no of char written) = %lu\n", r_params.current_id, r_params.log_file, message, status._ucount);
+		//printf(" tried in proc %d print to file %s the message %s with status(no of char written) = %lu\n", r_params.current_id, r_params.log_file, message, status._ucount);
+			printf(" tried in proc %d print to file %s the message %s \n", r_params.current_id, r_params.log_file, message);
 	}
 //	MPI_Barrier(MPI_COMM_WORLD);
 //	MPI_File_sync(file);
@@ -1212,7 +1226,7 @@ void init_run_params(run_parameters& r_params) {
 }
 //--------------------------------------------------------------------
 void init_params(t_parameters& params) {
-	
+
 	params.num_sub_populations = 8;
 	params.sub_population_size = 30;                            // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
@@ -1475,6 +1489,128 @@ int  main_no_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *traini
 }
 //--------------------------------------------------------------------
 //--------------------------------------------------------------------
+// main function for  MPI case
+//--------------------------------------------------------------------
+int main_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *training_graphs,int argc, char* argv[])
+{
+
+		double starttime, endtime, computetime, compute_sum=0, compute_max=0;
+
+
+#ifndef  USE_THREADS
+
+		MPI_Init(&argc, &argv);
+#else
+
+			int provided, flag,claimed, errs;
+				MPI_Init_thread( &argc, &argv,MPI_THREAD_FUNNELED, &provided );
+
+				MPI_Is_thread_main( &flag );
+				if (!flag) {
+					errs++;
+					printf( "This thread called init_thread but Is_thread_main gave false\n" );fflush(stdout);
+				}
+				else  printf( "This thread called init_thread with thread level %d\n", provided );fflush(stdout);
+				MPI_Query_thread( &claimed );
+				if (claimed != provided) {
+					errs++;
+					printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
+				}
+				else ;//printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
+#endif
+
+
+		MPI_Comm_size(MPI_COMM_WORLD, &r_params.num_procs);
+		MPI_Comm_rank(MPI_COMM_WORLD, &r_params.current_id);
+
+
+		init_run_params_command_line(r_params,   argc, argv);
+
+		if  (init_run_params_config_file(r_params) )
+			init_run_params(r_params);
+
+		if (init_params_config_file(r_params, t_params))
+			init_params(t_params);
+
+		//adjust the output filenames with params
+		set_name_files(t_params, r_params);
+
+
+		// write the parameters values on  the result file
+		if (init_files(t_params, r_params)) {
+			printf("result and log files could not be opend");
+			return 1;
+		};
+
+
+		//all processes will read the graphs
+		bool alloc_signal = allocate_training_graphs(training_graphs, t_params.num_training_graphs);
+		if (alloc_signal) {
+
+			//reading graphs
+			int read_sum = 0, verif_read_sum = 0;
+			read_sum = read_training_data(training_graphs);
+			MPI_Allreduce(&read_sum, &verif_read_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+			if (verif_read_sum == r_params.num_procs) {
+
+				//an attempt to improve writing into the log file - no to be open and closed each time
+				//	MPI_File file;
+				//	int err = MPI_File_open(MPI_COMM_WORLD,
+				//							"logfile.txt",
+				//						MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_SEQUENTIAL,	MPI_INFO_NULL, &file);
+
+				//	printf(" open file ierr=%d ", err);
+
+				starttime = MPI_Wtime();
+
+				compute_global_variables(training_graphs, t_params.num_training_graphs);
+				int num_variables = 10;
+
+				srand(r_params.current_id + r_params.num_procs); // we run each process with a different seed
+
+				printf("Evolving. proc ID=%d ..\n", r_params.current_id);
+				//start the evolution
+				start_steady_state(t_params, training_graphs, num_variables, r_params);
+
+				//	MPI_File_close(&file);
+
+				endtime = MPI_Wtime();
+				computetime = endtime - starttime;
+
+				// write the execution times  on  the result file
+				MPI_Reduce(&computetime, &compute_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+				MPI_Reduce(&computetime, &compute_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+				if (r_params.current_id == 0) {
+					FILE *f = fopen(r_params.result_file, "a");
+					fprintf(f, "___________________________________________________________________\n");
+					fprintf(f, "number of processes = %d \n", r_params.num_procs);
+					fprintf(f, "average computation time per process is %f seconds\n",
+							compute_sum / r_params.num_procs);
+					fprintf(f, "maximum  computation time of processes is %f seconds\n", compute_max);
+					fprintf(f, "___________________________________________________________________\n");
+					fprintf(f, "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+					fclose(f);
+				}
+
+				print_num_migrations(r_params);
+
+				MPI_Barrier(MPI_COMM_WORLD);
+				if (r_params.current_id == 0) {
+					FILE *f = fopen(r_params.log_file, "a");
+					fprintf(f, "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+					fclose(f);
+				}
+
+			}
+			else	printf("graphs were not correctly read\n");
+
+			delete_training_graphs(training_graphs, t_params.num_training_graphs);
+		}
+		else	printf("the space for the graphs was not correctly allocated\n");
+		MPI_Finalize();
+}
+
+//--------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
 
@@ -1486,125 +1622,9 @@ int main(int argc, char* argv[])
 #ifndef USE_MPI
 	return main_no_mpi( t_params, r_params, training_graphs,  argc, argv);
 #else
-
-	double starttime, endtime, computetime, compute_sum=0, compute_max=0;
-
-
-#ifndef  USE_THREADS
-
-	MPI_Init(&argc, &argv);
-#else
-
-
-	int provided, flag,claimed, errs;
-		MPI_Init_thread( &argc, &argv,MPI_THREAD_FUNNELED, &provided );
-
-		MPI_Is_thread_main( &flag );
-		if (!flag) {
-			errs++;
-			printf( "This thread called init_thread but Is_thread_main gave false\n" );fflush(stdout);
-		}
-		else  printf( "This thread called init_thread with thread level %d\n", provided );fflush(stdout);
-		MPI_Query_thread( &claimed );
-		if (claimed != provided) {
-			errs++;
-			printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
-		}
-		else ;//printf( "Query thread gave thread level %d but Init_thread gave %d\n", claimed, provided );fflush(stdout);
+	return main_mpi( t_params, r_params, training_graphs,  argc, argv);
 #endif
 
-
-	MPI_Comm_size(MPI_COMM_WORLD, &r_params.num_procs);
-	MPI_Comm_rank(MPI_COMM_WORLD, &r_params.current_id);
-
-
-	init_run_params_command_line(r_params,   argc, argv);
-
-	if  (init_run_params_config_file(r_params) )
-		init_run_params(r_params);
-
-	if (init_params_config_file(r_params, t_params))
-		init_params(t_params);
-
-//adjust the output filenames with params
-	set_name_files(t_params, r_params);
-
-
-// write the parameters values on  the result file
-	if (init_files(t_params, r_params)) {
-		printf("result and log files could not be opend");
-		return 1;
-	};
-
-
-//all processes will read the graphs
-	bool alloc_signal = allocate_training_graphs(training_graphs, t_params.num_training_graphs);
-	if (alloc_signal) {
-
-		//reading graphs
-		int read_sum = 0, verif_read_sum = 0;
-		read_sum = read_training_data(training_graphs);
-		MPI_Allreduce(&read_sum, &verif_read_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-		if (verif_read_sum == r_params.num_procs) {
-
-			//an attempt to improve writing into the log file - no to be open and closed each time
-			//	MPI_File file;
-			//	int err = MPI_File_open(MPI_COMM_WORLD,
-			//							"logfile.txt",
-			//						MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_SEQUENTIAL,	MPI_INFO_NULL, &file);
-
-			//	printf(" open file ierr=%d ", err);
-
-			starttime = MPI_Wtime();
-
-			compute_global_variables(training_graphs, t_params.num_training_graphs);
-			int num_variables = 10;
-
-			srand(r_params.current_id+r_params.num_procs); // we run each process with a different seed
-
-			printf("Evolving. proc ID=%d ..\n", r_params.current_id);
-			//start the evolution
-			start_steady_state(t_params, training_graphs, num_variables,  r_params);
-
-			//	MPI_File_close(&file);
-
-			endtime = MPI_Wtime();
-			computetime = endtime - starttime;
-
-
-
-// write the execution times  on  the result file
-			MPI_Reduce(&computetime, &compute_sum, 1, MPI_DOUBLE, MPI_SUM, 0,  MPI_COMM_WORLD);
-			MPI_Reduce(&computetime, &compute_max, 1, MPI_DOUBLE, MPI_MAX, 0,  MPI_COMM_WORLD);
-			if (r_params.current_id==0)
-			{
-				FILE* f = fopen(r_params.result_file,"a");
-				fprintf(f,"___________________________________________________________________\n");
-				fprintf(f, "number of processes = %d \n", r_params.num_procs);
-				fprintf(f, "average computation time per process is %f seconds\n", compute_sum/r_params.num_procs);
-				fprintf(f, "maximum  computation time of processes is %f seconds\n", compute_max);
-				fprintf(f,"___________________________________________________________________\n");
-				fprintf(f,"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-				fclose(f);
-			}
-
-			print_num_migrations(r_params);
-
-			MPI_Barrier(MPI_COMM_WORLD);
-			if (r_params.current_id==0) {
-				FILE *f = fopen(r_params.log_file, "a");
-				fprintf(f, "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-				fclose(f);
-			}
-
-		}
-		delete_training_graphs(training_graphs, t_params.num_training_graphs);
-	}
-	MPI_Finalize();
-
-#endif
-
-	return 0;
 }
 //--------------------------------------------------------------------
 //--------------------------------------------------------------------
