@@ -1207,13 +1207,12 @@ void init_run_params(run_parameters& r_params) {
 	strcpy(r_params.log_file, "log");
 	strcpy(r_params.result_file, "result");
 
-	r_params.current_id = 0;
-	r_params.num_procs = 1;
 	r_params.num_threads = 1;// it is recommended to be a number that divide params.num_sub_populations
 	r_params.recv_no = 0;
 }
 //--------------------------------------------------------------------
 void init_params(t_parameters& params) {
+	
 	params.num_sub_populations = 8;
 	params.sub_population_size = 30;                            // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
