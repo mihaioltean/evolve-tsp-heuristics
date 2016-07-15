@@ -1055,10 +1055,23 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 
 	sprintf(message, "pid= %d gen %d best_fitness=%f simplified = %s\n", r_params.current_id, generation,
 			sub_populations[best_individual_subpop_index][0].fitness, expression );
-	MPI_File file;
+	int err;
+
+	FILE* f = fopen(r_params.log_file, "a");
+	if (!f) {
+		printf(" tried in proc %d print to file %s the message %s \n", r_params.current_id, r_params.log_file, message);
+		return 1;
+	}
+	else
+		fprintf(f, "%s", message);
+
+	fclose(f);
+	return 0;
+
+	/*MPI_File file;
 	MPI_Status status;
 
-	int err;
+
 	//while (err)
 	{
 		err = MPI_File_open(MPI_COMM_SELF,
@@ -1071,7 +1084,7 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 
 	if (err) {
 		printf("try to open the file %s in proc %d with error %d\n", r_params.log_file, r_params.current_id, err);
-		MPI_Abort(MPI_COMM_WORLD, err);
+		//MPI_Abort(MPI_COMM_WORLD, err);
 	}
 	else {
 		err = MPI_File_write(file, message, (int) strlen(message), MPI_CHAR, &status);
@@ -1082,7 +1095,7 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 	}
 	MPI_File_close(&file);
 
-	return  err;
+	return  err;*/
 #endif
 }
 //---------------------------------------------------------------------------
@@ -1185,12 +1198,22 @@ void print_num_migrations(run_parameters &r_params){
 	char * message;
 	message = new char[40];
 
-	MPI_Barrier(MPI_COMM_WORLD);
 
+	FILE* f = fopen(r_params.log_file, "a");
+	if (!f)
+		printf(" tried in proc %d print to file %s the message %s \n", r_params.current_id, r_params.log_file, message);
+
+	else{
+			fprintf(f, "in proc id = %d recv_no=%d\n", r_params.current_id, r_params.recv_no);
+			fclose(f);
+	}
+
+
+
+	/*
 	sprintf(message,"in proc id = %d recv_no=%d\n", r_params.current_id, r_params.recv_no);
 
-	//sprintf(message, "pid= %d gen %d best_fitness=%f\n",  r_params.current_id,  generation,
-	//		sub_populations[best_individual_subpop_index][0].fitness);
+
 	MPI_File file;
 	MPI_Status status;
 	int err = MPI_File_open(MPI_COMM_SELF,
@@ -1213,6 +1236,7 @@ void print_num_migrations(run_parameters &r_params){
 	MPI_File_close(&file);
 	//MPI_Barrier(MPI_COMM_WORLD);
 	//MPI_File_sync(file);
+	 */
 #endif
 }
 
@@ -1608,6 +1632,7 @@ int main_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *training_g
 		}
 		else	printf("the space for the graphs was not correctly allocated\n");
 		MPI_Finalize();
+	return 0;
 }
 
 //--------------------------------------------------------------------
