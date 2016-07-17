@@ -1056,7 +1056,7 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 	sprintf(message, "pid= %d gen %d best_fitness=%f simplified = %s\n", r_params.current_id, generation,
 			sub_populations[best_individual_subpop_index][0].fitness, expression );
 	int err;
-
+/*
 	FILE* f = fopen(r_params.log_file, "a");
 	if (!f) {
 		printf(" tried in proc %d print to file %s the message %s \n", r_params.current_id, r_params.log_file, message);
@@ -1068,13 +1068,14 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 	fclose(f);
 	return 0;
 
-	/*MPI_File file;
+	*/
+			MPI_File file;
 	MPI_Status status;
 
 
 	//while (err)
 	{
-		err = MPI_File_open(MPI_COMM_SELF,
+		err = MPI_File_open(MPI_COMM_WORLD,
 							r_params.log_file,
 							MPI_MODE_CREATE | MPI_MODE_WRONLY | MPI_MODE_APPEND, MPI_INFO_NULL, &file);
 
@@ -1087,7 +1088,9 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 		//MPI_Abort(MPI_COMM_WORLD, err);
 	}
 	else {
-		err = MPI_File_write(file, message, (int) strlen(message), MPI_CHAR, &status);
+
+		MPI_File_seek_shared(file,	0,	MPI_SEEK_END);
+		err = MPI_File_write_ordered(file, message, (int) strlen(message), MPI_CHAR, &status);
 
 		if (err)
 			printf("write on file %s with error= %d in proc %d message %s of length %d\n", r_params.log_file, err,
@@ -1095,7 +1098,7 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 	}
 	MPI_File_close(&file);
 
-	return  err;*/
+	return  err;
 #endif
 }
 //---------------------------------------------------------------------------
@@ -1198,7 +1201,7 @@ void print_num_migrations(run_parameters &r_params){
 	char * message;
 	message = new char[40];
 
-
+/*
 	FILE* f = fopen(r_params.log_file, "a");
 	if (!f)
 		printf(" tried in proc %d print to file %s the message %s \n", r_params.current_id, r_params.log_file, message);
@@ -1208,22 +1211,28 @@ void print_num_migrations(run_parameters &r_params){
 			fclose(f);
 	}
 
+*/
 
 
-	/*
 	sprintf(message,"in proc id = %d recv_no=%d\n", r_params.current_id, r_params.recv_no);
 
 
 	MPI_File file;
 	MPI_Status status;
-	int err = MPI_File_open(MPI_COMM_SELF,
+	int err = MPI_File_open(MPI_COMM_WORLD,
 							r_params.log_file,
 							MPI_MODE_CREATE| MPI_MODE_WRONLY|MPI_MODE_APPEND,	MPI_INFO_NULL, &file);
 
 
 	if (err) printf("try to open file %s in proc %d error %d\n",r_params.log_file,r_params.current_id ,err);
 	else {
-		err =   MPI_File_write(file, message, (int) strlen(message), MPI_CHAR, &status);
+		//MPI_Barrier(MPI_COMM_WORLD);
+		MPI_File_seek_shared(
+				file,
+				0,
+				MPI_SEEK_END);
+
+		err =   MPI_File_write_ordered(file, message, (int) strlen(message), MPI_CHAR, &status);
 		if(err)
 		//printf(" tried in proc %d print to file %s the message %s with status(no of char written) = %lu\n", r_params.current_id, r_params.log_file, message, status._ucount);
 			printf(" tried in proc %d print to file %s the message %s \n", r_params.current_id, r_params.log_file, message);
@@ -1236,7 +1245,7 @@ void print_num_migrations(run_parameters &r_params){
 	MPI_File_close(&file);
 	//MPI_Barrier(MPI_COMM_WORLD);
 	//MPI_File_sync(file);
-	 */
+
 #endif
 }
 
