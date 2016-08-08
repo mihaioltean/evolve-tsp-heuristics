@@ -235,160 +235,105 @@ bool allocate_training_graphs(t_graph *&training_graphs, int num_training_graphs
 }
 //---------------------------------------------------------------------------
 
-int read_graphs(t_graph *training_graphs)
+bool read_graph_distances(t_graph &graph, const char *path_to_files, const char *file_name)
 {
-	// training is done on 4 graphs
-	//4 graphs are read
-	int k = 0; // count the graphs
-	{
-		FILE* f = fopen("data//bayg29.tsp", "r");
-		if (!f)
-			return 0;
+	char path_and_file_name[256];
+	strcpy(path_and_file_name, path_to_files);
+	strcat(path_and_file_name, file_name);
+	strcat(path_and_file_name, ".tsp");
 
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-		// now read the data
-		for (int i = 0; i < training_graphs[k].num_nodes - 1; i++)
-			for (int j = i; j < training_graphs[k].num_nodes; j++)
-				if (i != j) {
-					fscanf(f, "%lf", &training_graphs[k].distance[i][j]);
-					training_graphs[k].distance[j][i] = training_graphs[k].distance[i][j];
-				}
-				else
-					training_graphs[k].distance[i][i] = 0;
+	FILE* f = fopen(path_and_file_name, "r");
+	if (!f)
+		return false;
 
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
+	fscanf(f, "%d", &graph.num_nodes);
+	// allocate the memory first
+	graph.distance = new double*[graph.num_nodes];
+	for (int i = 0; i < graph.num_nodes; i++)
+		graph.distance[i] = new double[graph.num_nodes];
+	// now read the data
+	for (int i = 0; i < graph.num_nodes - 1; i++)
+		for (int j = i; j < graph.num_nodes; j++)
+			if (i != j) {
+				fscanf(f, "%lf", &graph.distance[i][j]);
+				graph.distance[j][i] = graph.distance[i][j];
+			}
+			else
+				graph.distance[i][i] = 0;
 
-		fclose(f);
-	}
-	{
-		k++;
-		FILE* f = fopen("data//a280.tsp", "r");
-		if (!f)
-			return 0;
+	// now read the length of the shortest path
+	fscanf(f, "%lf", &graph.optimal_length);
 
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
-		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-		fclose(f);
-
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
-
-		delete[] x;
-		delete[] y;
-	}
-	{
-		k++;
-		FILE* f = fopen("data//berlin52.tsp", "r");
-		if (!f)
-			return 0;
-
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
-		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-		fclose(f);
-
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
-
-		delete[] x;
-		delete[] y;
-	}
-	{
-		k++;
-		FILE* f = fopen("data//bier127.tsp", "r");
-		if (!f)
-			return 0;
-
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
-		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-		fclose(f);
-
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
-
-		delete[] x;
-		delete[] y;
-	}	return 1;
+	fclose(f);
+	return true;
 }
 //---------------------------------------------------------------------------
-void delete_training_graphs(t_graph *&training_graphs, int num_training_graphs)
+bool read_graph_nodes_coordinates(t_graph &graph, const char *path_to_files, const char *file_name)
 {
-	if (training_graphs) {
-		for (int i = 0; i < num_training_graphs; i++) {
-			for (int j = 0; j < training_graphs[i].num_nodes; j++)
-				delete[] training_graphs[i].distance[j];
-			delete[] training_graphs[i].distance;
-		}
-		delete[] training_graphs;
-	}
+	char path_and_file_name[256];
+	strcpy(path_and_file_name, path_to_files);
+	strcat(path_and_file_name, file_name);
+	strcat(path_and_file_name, ".tsp");
+
+	FILE* f = fopen(path_and_file_name, "r");
+	if (!f)
+		return false;
+
+	fscanf(f, "%d", &graph.num_nodes);
+	// allocate the memory first
+	graph.distance = new double*[graph.num_nodes];
+	for (int i = 0; i < graph.num_nodes; i++)
+		graph.distance[i] = new double[graph.num_nodes];
+	double *x = new double[graph.num_nodes];
+	double *y = new double[graph.num_nodes];
+	int index;
+	for (int i = 0; i < graph.num_nodes; i++)
+		fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+	// now read the length of the shortest path
+	fscanf(f, "%lf", &graph.optimal_length);
+	fclose(f);
+
+	for (int i = 0; i < graph.num_nodes; i++)
+		for (int j = 0; j < graph.num_nodes; j++)
+			graph.distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+	delete[] x;
+	delete[] y;
+
+	fclose(f);
+
+	return true;
+}
+//---------------------------------------------------------------------------
+void delete_graph(t_graph &graph)
+{
+	for (int j = 0; j < graph.num_nodes; j++)
+		delete[] graph.distance[j];
+	delete[] graph.distance;
 }
 
 //--------------------------------------------------------------------
 // here we compute the min, max and average distance in a given graph
 //--------------------------------------------------------------------
-void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
+void compute_global_variables(t_graph &graph)
 {
-
-	for (int k = 0; k < num_training_graphs; k++) {
-		training_graphs[k].max_distance = training_graphs[k].distance[0][1];
-		training_graphs[k].min_distance = training_graphs[k].distance[0][1];
-		training_graphs[k].average_distance = 0;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				if (i != j) {
-					training_graphs[k].average_distance += training_graphs[k].distance[i][j];
-					if (training_graphs[k].max_distance < training_graphs[k].distance[i][j])
-						training_graphs[k].max_distance = training_graphs[k].distance[i][j];
-					if (training_graphs[k].min_distance > training_graphs[k].distance[i][j])
-						training_graphs[k].min_distance = training_graphs[k].distance[i][j];
-				}
-		training_graphs[k].average_distance /=
-			(training_graphs[k].num_nodes * training_graphs[k].num_nodes) - training_graphs[k].num_nodes;
-	}
+	graph.max_distance = graph.distance[0][1];
+	graph.min_distance = graph.distance[0][1];
+	graph.average_distance = 0;
+	for (int i = 0; i < graph.num_nodes; i++)
+		for (int j = 0; j < graph.num_nodes; j++)
+			if (i != j) {
+				graph.average_distance += graph.distance[i][j];
+				if (graph.max_distance < graph.distance[i][j])
+					graph.max_distance = graph.distance[i][j];
+				if (graph.min_distance > graph.distance[i][j])
+					graph.min_distance = graph.distance[i][j];
+			}
+	graph.average_distance /= (graph.num_nodes * graph.num_nodes) - graph.num_nodes;
 }
 
 //---------------------------------------------------------------------------
-void calibrate_vars_values(double * vars_values, t_graph training_graph)
+void calibrate_vars_values(double * vars_values, t_graph &training_graph)
 {
 	vars_values[min_distance_in_matrix] /= training_graph.max_distance; //in order to reduce to [0,1] range
 	vars_values[max_distance_in_matrix] /= training_graph.max_distance; //in order to reduce to [0,1] range
@@ -399,7 +344,6 @@ void calibrate_vars_values(double * vars_values, t_graph training_graph)
 	vars_values[length_so_far] /= training_graph.max_distance;
 	vars_values[num_visited_nodes] /= training_graph.num_nodes;
 	vars_values[distance_to_next_node] /= training_graph.max_distance;
-
 }
 //---------------------------------------------------------------------------
 void compute_local_variables(t_graph &graph, int num_visited, int current_node, int *node_visited, double *vars_values)
@@ -450,7 +394,7 @@ double run_nn_heuristic(t_chromosome &individual, t_graph &graph)
 			if (!node_visited[node]) {// not visited yet
 				double distance_to_next = graph.distance[tsp_path[count_nodes - 1]][node];
 
-				
+
 				if (distance_to_next < min_eval) {
 					best_node = node; // keep the one with minimal evaluation
 					min_eval = distance_to_next;
@@ -476,7 +420,7 @@ double run_nn_heuristic(t_chromosome &individual, t_graph &graph)
 }
 //--------------------------------------------------------------------
 
-double run_gp_heuristic(t_chromosome &individual, t_graph &graph, 
+double run_gp_heuristic(t_chromosome &individual, t_graph &graph,
 	int num_variables, double * vars_values, double *partial_values_array)
 
 {
@@ -487,88 +431,71 @@ double run_gp_heuristic(t_chromosome &individual, t_graph &graph,
 	// so we extract only some summarized information from it
 	// we fill the "vars_values" array with this summarized information
 	// a function having vars_values as a parameter will be evolved
-	
 
-		// set the value of variables
-		vars_values[min_distance_in_matrix] = graph.min_distance;
-		vars_values[max_distance_in_matrix] = graph.max_distance;
-		vars_values[average_distance_in_matrix] = graph.average_distance;
-		vars_values[num_total_nodes] = graph.num_nodes;
 
-		// initialize memory for the path
+	// set the value of variables
+	vars_values[min_distance_in_matrix] = graph.min_distance;
+	vars_values[max_distance_in_matrix] = graph.max_distance;
+	vars_values[average_distance_in_matrix] = graph.average_distance;
+	vars_values[num_total_nodes] = graph.num_nodes;
 
-		int *tsp_path = new int[graph.num_nodes];
-		int *node_visited = new int[graph.num_nodes];
-		for (int i = 0; i < graph.num_nodes; i++)
-			node_visited[i] = 0;
+	// initialize memory for the path
 
-		// init path
-		int count_nodes = 0;
-		tsp_path[0] = 0; // first node in the path is 0;
-		node_visited[0] = 1;
-		count_nodes++;
-		double path_length = 0;
+	int *tsp_path = new int[graph.num_nodes];
+	int *node_visited = new int[graph.num_nodes];
+	for (int i = 0; i < graph.num_nodes; i++)
+		node_visited[i] = 0;
 
-		while (count_nodes < graph.num_nodes) {
-			// fill the path node by node
-			double min_eval = DBL_MAX;
-			int best_node = -1;
-			// compute other statistics
-			vars_values[length_so_far] = path_length;
-			vars_values[num_visited_nodes] = count_nodes;
-			compute_local_variables(graph, count_nodes, tsp_path[count_nodes - 1], node_visited, vars_values);
+	// init path
+	int count_nodes = 0;
+	tsp_path[0] = 0; // first node in the path is 0;
+	node_visited[0] = 1;
+	count_nodes++;
+	double path_length = 0;
 
-			for (int node = 0; node < graph.num_nodes; node++)
-				// consider each unvisited node
-				if (!node_visited[node]) {// not visited yet
-					vars_values[distance_to_next_node] = graph.distance[tsp_path[count_nodes - 1]][node];
+	while (count_nodes < graph.num_nodes) {
+		// fill the path node by node
+		double min_eval = DBL_MAX;
+		int best_node = -1;
+		// compute other statistics
+		vars_values[length_so_far] = path_length;
+		vars_values[num_visited_nodes] = count_nodes;
+		compute_local_variables(graph, count_nodes, tsp_path[count_nodes - 1], node_visited, vars_values);
 
-					calibrate_vars_values(vars_values, graph);
+		for (int node = 0; node < graph.num_nodes; node++)
+			// consider each unvisited node
+			if (!node_visited[node]) {// not visited yet
+				vars_values[distance_to_next_node] = graph.distance[tsp_path[count_nodes - 1]][node];
 
-					double eval = evaluate(individual.prg, individual.code_length - 1, num_variables, vars_values, partial_values_array, individual.constants);
-					if (eval < min_eval) {
-						best_node = node; // keep the one with minimal evaluation
-						min_eval = eval;
-					}
+				calibrate_vars_values(vars_values, graph);
+
+				double eval = evaluate(individual.prg, individual.code_length - 1, num_variables, vars_values, partial_values_array, individual.constants);
+				if (eval < min_eval) {
+					best_node = node; // keep the one with minimal evaluation
+					min_eval = eval;
 				}
-			// add the best next node to the path
-			path_length += graph.distance[tsp_path[count_nodes - 1]][best_node];
-			node_visited[best_node] = 1;
+			}
+		// add the best next node to the path
+		path_length += graph.distance[tsp_path[count_nodes - 1]][best_node];
+		node_visited[best_node] = 1;
 
-			tsp_path[count_nodes] = best_node;
-			count_nodes++;
+		tsp_path[count_nodes] = best_node;
+		count_nodes++;
 
-		}
-		// connect the last with the first in the path
-		path_length += graph.distance[tsp_path[count_nodes - 1]][tsp_path[0]];
-		
+	}
+	// connect the last with the first in the path
+	path_length += graph.distance[tsp_path[count_nodes - 1]][tsp_path[0]];
 
-		delete[] tsp_path;
-		delete[] node_visited;
-	
-		return path_length;
-	
+
+	delete[] tsp_path;
+	delete[] node_visited;
+
+	return path_length;
+
 }
 //--------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
-	t_graph *graphs = NULL;
-	int num_graphs = 4;
-
-	allocate_training_graphs(graphs, num_graphs);
-	if (!read_graphs(graphs)) {
-		printf("Cannot find input graphs! Please specify the full path!\n");
-		printf("Press Enter ...");
-		getchar();
-		return 1;
-	}
-
-	compute_global_variables(graphs, num_graphs);
-
-	int num_variables = 10;
-
-	double* vars_values = new double[num_variables];
-
 	t_chromosome a_chromosome;
 	if (!a_chromosome.from_file_simplified("best.txt")) {
 		printf("Cannot find input solution! Please specify the full path!\n");
@@ -577,19 +504,64 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	int num_variables = 10;
+	double* vars_values = new double[num_variables];
 	double *partial_values_array = new double[a_chromosome.code_length];
 
-	printf("graph # || GP length || NN length || shortest length || GP error %% || NN error %% \n");
 
-	for (int k = 0; k < num_graphs; k++) {
-		double path_length_gp = run_gp_heuristic(a_chromosome, graphs[k], num_variables, vars_values, partial_values_array);
-		double path_length_nn = run_nn_heuristic(a_chromosome, graphs[k]);
-		printf("[%d]      %12.2lf  %12.2lf %17.2lf %10.2lf %10.2lf\n", k, path_length_gp, path_length_nn, graphs[k].optimal_length, (path_length_gp - graphs[k].optimal_length) / graphs[k].optimal_length * 100, (path_length_nn - graphs[k].optimal_length) / graphs[k].optimal_length * 100);
+	printf("graph      || GP length || NN length || shortest || GP error %% || NN error %% \n");
+
+	t_graph graph;
+	const char *path = "data\\";
+
+	// graphs given as distance matrix
+	{
+		int num_graphs_distances = 2;
+		char graph_distances_file_names[2][20] = { "bayg29", "brazil58" };
+
+		for (int g = 0; g < num_graphs_distances; g++)
+			if (!read_graph_distances(graph, path, graph_distances_file_names[g])) {
+				printf("Cannot find input file %s! Please specify the full path!\n", graph_distances_file_names[g]);
+				printf("Press Enter ...");
+				getchar();
+				return 1;
+			}
+			else {
+				compute_global_variables(graph);
+
+				double path_length_gp = run_gp_heuristic(a_chromosome, graph, num_variables, vars_values, partial_values_array);
+				double path_length_nn = run_nn_heuristic(a_chromosome, graph);
+				printf("%10s  %11.2lf  %11.2lf %11.2lf %10.2lf %10.2lf\n", graph_distances_file_names[g], path_length_gp, path_length_nn, graph.optimal_length, (path_length_gp - graph.optimal_length) / graph.optimal_length * 100, (path_length_nn - graph.optimal_length) / graph.optimal_length * 100);
+
+				delete_graph(graph);
+			}
+		
 	}
-	delete[] partial_values_array;
+// graphs given as nodes coordinates
+	{
+		int num_graphs_nodes_coordinates = 7;
+		char graph_nodes_coordinates_file_names[7][20] = { "a280", "berlin52", "bier127", "ch130", "d1291", "d15112", "d18512" };
 
+		for (int g = 0; g < num_graphs_nodes_coordinates; g++) 
+			if (!read_graph_nodes_coordinates(graph, path, graph_nodes_coordinates_file_names[g])) {
+				printf("Cannot find input file %s! Please specify the full path!\n", graph_nodes_coordinates_file_names[g]);
+				printf("Press Enter ...");
+				getchar();
+				return 1;
+			}
+			else {
+				compute_global_variables(graph);
+
+				double path_length_gp = run_gp_heuristic(a_chromosome, graph, num_variables, vars_values, partial_values_array);
+				double path_length_nn = run_nn_heuristic(a_chromosome, graph);
+				printf("%10s  %11.2lf  %11.2lf %11.2lf %10.2lf %10.2lf\n", graph_nodes_coordinates_file_names[g], path_length_gp, path_length_nn, graph.optimal_length, (path_length_gp - graph.optimal_length) / graph.optimal_length * 100, (path_length_nn - graph.optimal_length) / graph.optimal_length * 100);
+
+				delete_graph(graph);
+			}
+		
+	}
 	delete[] vars_values;
-	delete_training_graphs(graphs, num_graphs);
+	delete[] partial_values_array;
 
 	printf("Press Enter ...");
 	getchar();
