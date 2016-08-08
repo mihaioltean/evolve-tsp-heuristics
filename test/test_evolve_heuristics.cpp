@@ -579,12 +579,12 @@ int main(int argc, char* argv[])
 
 	double *partial_values_array = new double[a_chromosome.code_length];
 
-	printf("graph #% || GP length || NN length || shortest path length || GP % || NN % \n");
+	printf("graph # || GP length || NN length || shortest length || GP error %% || NN error %% \n");
 
 	for (int k = 0; k < num_graphs; k++) {
 		double path_length_gp = run_gp_heuristic(a_chromosome, graphs[k], num_variables, vars_values, partial_values_array);
 		double path_length_nn = run_nn_heuristic(a_chromosome, graphs[k]);
-		printf("[%d]  %lf  %lf %lf %lf %lf\n", k, path_length_gp, path_length_nn, graphs[k].optimal_length, (path_length_gp - graphs[k].optimal_length) / graphs[k].optimal_length * 100, (path_length_nn - graphs[k].optimal_length) / graphs[k].optimal_length * 100);
+		printf("[%d]      %12.2lf  %12.2lf %17.2lf %10.2lf %10.2lf\n", k, path_length_gp, path_length_nn, graphs[k].optimal_length, (path_length_gp - graphs[k].optimal_length) / graphs[k].optimal_length * 100, (path_length_nn - graphs[k].optimal_length) / graphs[k].optimal_length * 100);
 	}
 	delete[] partial_values_array;
 
