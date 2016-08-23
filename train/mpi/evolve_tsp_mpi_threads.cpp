@@ -729,7 +729,7 @@ void compute_local_variables(t_graph &graph, int num_visited, int current_node, 
 	vars_values[average_distance_to_unvisited] /= (double)(graph.num_nodes - num_visited);
 }
 //--------------------------------------------------------------------
-void fitness(t_chromosome &individual, t_graph *training_graphs, int num_training_graphs, int num_variables, double * vars_values, double *partial_values_array)
+double fitness(t_chromosome &individual, t_graph *training_graphs, int num_training_graphs, int num_variables, double * vars_values, double *partial_values_array)
 {
 	// fitness is the sum of errors over all training graphs.
 	// error is the distance from the optimum
@@ -739,7 +739,7 @@ void fitness(t_chromosome &individual, t_graph *training_graphs, int num_trainin
 	// we fill the "vars_values" array with this summarized information
 	// a function having vars_values as a parameter will be evolved
 
-	individual.fitness = 0;
+	double local_fitness = 0;
 
 	for (int k = 0; k < num_training_graphs; k++) {
 
@@ -790,13 +790,14 @@ void fitness(t_chromosome &individual, t_graph *training_graphs, int num_trainin
 		}
 		// connect the last with the first in the path
 		path_length += training_graphs[k].distance[tsp_path[count_nodes - 1]][tsp_path[0]];
-		individual.fitness += (path_length - training_graphs[k].optimal_length) / training_graphs[k].optimal_length * 100;
+		local_fitness += (path_length - training_graphs[k].optimal_length) / training_graphs[k].optimal_length * 100;
 		// keep it in percent from the optimal solution, otherwise we have scalling problems
 
 		delete[] tsp_path;
 		delete[] node_visited;
 	}
-	individual.fitness /= (double)num_training_graphs; // average over the number of training graphs
+	local_fitness /= (double)num_training_graphs; // average over the number of training graphs
+	return local_fitness;
 }
 //-----------------------------------------------------------------
 #ifdef USE_THREADS
@@ -831,7 +832,7 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 				for (int i = 0; i < params->sub_population_size; i++) {
 					generate_random_chromosome(a_sub_population[i], *params, num_variables);
 
-					fitness(a_sub_population[i], training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+					a_sub_population[i].fitness = fitness(a_sub_population[i], training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 
 				}
 				// sort ascendingly by fitness inside this population
@@ -854,11 +855,11 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 					}
 					// mutate the result and compute fitness
 					mutation(offspring1, *params, num_variables);
-					fitness(offspring1, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+					offspring1.fitness = fitness(offspring1, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 
 					// mutate the other offspring too
 					mutation(offspring2, *params, num_variables);
-					fitness(offspring2, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+					offspring2.fitness = fitness(offspring2, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 
 					// replace the worst in the population
 					if (offspring1.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
@@ -879,7 +880,7 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 	}
 }
 //---------------------------------------------------------------------------
-void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_training_graphs, int num_variables, int num_procs, int current_proc_id)
+void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_training_graphs, t_graph *validation_graphs, int num_validation_graphs, int num_variables, int num_procs, int current_proc_id)
 {
 
 	int size_to_send = params.code_length * sizeof(t_code3) + params.num_constants * 20 + 20;
@@ -916,6 +917,10 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	double* vars_values = new double[num_variables];
 #endif
 
+	t_chromosome best_validation;
+	allocate_chromosome(best_validation, params);
+	double best_validation_fitness = DBL_MAX;
+
 	// evolve for a fixed number of generations
 	for (int generation = 0; generation < params.num_generations; generation++) { // for each generation
 
@@ -932,7 +937,6 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 		//for (int p = 0; p < params.num_sub_populations; p++)
 		int p = 0;
 		evolve_one_subpopulation(&p, sub_populations, generation, &params, training_graphs, num_training_graphs, num_variables, vars_values);
-
 #endif
 		// find the best individual
 		int best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
@@ -941,7 +945,18 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 			if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
 				best_individual_subpop_index = p;
 
-		printf("proc_id=%d, generation=%d, best=%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness);
+		double *partial_values_array = new double[params.code_length];
+
+		sub_populations[best_individual_subpop_index][0].simplify(params.code_length);
+		double current_validation_fitness = fitness(sub_populations[best_individual_subpop_index][0], validation_graphs, num_validation_graphs, num_variables, vars_values, partial_values_array);
+
+		if (!generation || generation && current_validation_fitness < best_validation_fitness) {
+			best_validation_fitness = current_validation_fitness;
+			copy_individual(best_validation, sub_populations[best_individual_subpop_index][0], params);
+		}
+		delete[] partial_values_array;
+
+		printf("proc_id=%d, generation=%d, best training =%lf best validation =%lf\n", current_proc_id, generation, sub_populations[best_individual_subpop_index][0].fitness, best_validation_fitness);
 
 		if (current_proc_id == 0) {
 			FILE* f = fopen("tst_log.txt", "a");
@@ -996,8 +1011,8 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 #endif
 	// print best t_chromosome
 	// any of them can be printed because if we allow enough generations, the populations will become identical
-	print_chromosome(sub_populations[0][0], params, num_variables);
-	sub_populations[0][0].to_file_simplified("best.txt", params.code_length, params.num_constants);
+	print_chromosome(best_validation, params, num_variables);
+	best_validation.to_file_simplified("best.txt", params.code_length, params.num_constants);
 
 	// free memory
 
@@ -1018,6 +1033,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	delete[] s_source;
 
 	delete_chromosome(receive_chromosome);
+	delete_chromosome(best_validation);
 }
 //--------------------------------------------------------------------
 void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
@@ -1043,10 +1059,10 @@ void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
 int main(int argc, char* argv[])
 {
 	t_parameters params;
-	params.num_sub_populations = 1;
-	params.sub_population_size = 300;						    // the number of individuals in population  (must be an even number!)
+	params.num_sub_populations = 2;
+	params.sub_population_size = 30;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 10;					// the number of generations
+	params.num_generations = 1000;					// the number of generations
 	params.mutation_probability = 0.01;              // mutation probability
 	params.crossover_probability = 0.9;             // crossover probability
 
@@ -1062,17 +1078,17 @@ int main(int argc, char* argv[])
 	params.num_threads = 4;
 #endif
 
-	t_graph *training_graphs = NULL;
-	int num_training_graphs = 0;
+	t_graph *graphs = NULL;
+	int num_graphs = 0;
 
-	if (!read_training_data(training_graphs, num_training_graphs)) {
+	if (!read_training_data(graphs, num_graphs)) {
 		printf("Cannot find input file(s)! Please specify the full path!\n");
 		printf("Press Enter ...");
 		getchar();
 		return 1;
 	}
 
-	compute_global_variables(training_graphs, num_training_graphs);
+	compute_global_variables(graphs, num_graphs);
 
 	int num_variables = 10;
 
@@ -1090,9 +1106,9 @@ int main(int argc, char* argv[])
 
 
 	printf("Evolving... proc_id = %d\n", current_proc_id);
-	start_steady_state(params, training_graphs, num_training_graphs, num_variables, num_procs, current_proc_id);
+	start_steady_state(params, graphs, 2, graphs + 2, 2, num_variables, num_procs, current_proc_id);
 
-	delete_training_graphs(training_graphs, num_training_graphs);
+	delete_training_graphs(graphs, num_graphs);
 
 #ifdef USE_MPI
 	if (current_proc_id == 0) {
