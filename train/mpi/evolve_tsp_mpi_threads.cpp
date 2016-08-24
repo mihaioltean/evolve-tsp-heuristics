@@ -1,5 +1,4 @@
 //---------------------------------------------------------------------------
-//   Multi Expression Programming Software - with multiple subpopulations and threads and MPI
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com), Virginia Niculescu (vniculescu@cs.ubbcluj.ro)
 //   Version 2016.06.26.0 // year.month.day.build#
 
@@ -13,8 +12,6 @@
 //   Each subpopulation is evolved using a set of threads if USE_THREADS option is used.
 //   The subpopulations have a circular structure
 //   At the end of each generation we move, from each subpopulation, some individuals in the next one
-
-//   I recommend to check the basic variant first (without subpopulations and threads)
 
 //
 //   Compiled inside  CLion 1.2.5. configured to support MPI
@@ -34,8 +31,6 @@
 //  mpicxx
 //  and executed with
 //  mpirun
-
-//   More info at:  http://www.mep.cs.ubbcluj.ro
 
 //   Please reports any sugestions and/or bugs to:     mihai.oltean@gmail.com or to vniculescu@cs.ubbcluj.ro
 
@@ -114,6 +109,7 @@ struct t_parameters{
 	double variables_probability, operators_probability, constants_probability;
 	int num_migrations ;
 	int num_training_graphs;
+	int num_validation_graphs;
 };
 //---------------------------------------------------------------------------
 //execution parameters
@@ -593,14 +589,14 @@ struct t_graph{
 	double optimal_length;  // known optimal solution
 };
 //---------------------------------------------------------------------------
-bool allocate_training_graphs(t_graph *&training_graphs, int num_training_graphs){
-	training_graphs = new t_graph[num_training_graphs];
+bool allocate_graphs(t_graph *&graphs, int num_graphs){
+	graphs = new t_graph[num_graphs];
 
 	return true;
 }
 //---------------------------------------------------------------------------
 
-int read_training_data(t_graph *training_graphs)
+int read_training_graphs(t_graph *graphs)
 {
 	// training is done on 4 graphs
 	//4 graphs are read
@@ -610,23 +606,23 @@ int read_training_data(t_graph *training_graphs)
 		if (!f)
 			return 0;
 
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
+		fscanf(f, "%d", &graphs[k].num_nodes);
 		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
+		graphs[k].distance = new double*[graphs[k].num_nodes];
+		for (int i = 0; i < graphs[k].num_nodes; i++)
+			graphs[k].distance[i] = new double[graphs[k].num_nodes];
 		// now read the data
-		for (int i = 0; i < training_graphs[k].num_nodes - 1; i++)
-			for (int j = i; j < training_graphs[k].num_nodes; j++)
+		for (int i = 0; i < graphs[k].num_nodes - 1; i++)
+			for (int j = i; j < graphs[k].num_nodes; j++)
 				if (i != j) {
-					fscanf(f, "%lf", &training_graphs[k].distance[i][j]);
-					training_graphs[k].distance[j][i] = training_graphs[k].distance[i][j];
+					fscanf(f, "%lf", &graphs[k].distance[i][j]);
+					graphs[k].distance[j][i] = graphs[k].distance[i][j];
 				}
 				else
-					training_graphs[k].distance[i][i] = 0;
+					graphs[k].distance[i][i] = 0;
 
 		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
+		fscanf(f, "%lf", &graphs[k].optimal_length);
 
 		fclose(f);
 	}
@@ -636,52 +632,57 @@ int read_training_data(t_graph *training_graphs)
 		if (!f)
 			return 0;
 
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
+		fscanf(f, "%d", &graphs[k].num_nodes);
 		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
+		graphs[k].distance = new double*[graphs[k].num_nodes];
+		for (int i = 0; i < graphs[k].num_nodes; i++)
+			graphs[k].distance[i] = new double[graphs[k].num_nodes];
 
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
+		double *x = new double[graphs[k].num_nodes];
+		double *y = new double[graphs[k].num_nodes];
 		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+		for (int i = 0; i < graphs[k].num_nodes; i++)
 			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
 		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
+		fscanf(f, "%lf", &graphs[k].optimal_length);
 		fclose(f);
 
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+		for (int i = 0; i < graphs[k].num_nodes; i++)
+			for (int j = 0; j < graphs[k].num_nodes; j++)
+				graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
 
 		delete[] x;
 		delete[] y;
 	}
+}
+//----------------------------------------------------------------------
+int read_validation_graphs(t_graph *graphs)
+	{ 
+		int k = 0;
 	{
-		k++;
+		
 		FILE* f = fopen("data//berlin52.tsp", "r");
 		if (!f)
 			return 0;
 
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
+		fscanf(f, "%d", &graphs[k].num_nodes);
 		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
+		graphs[k].distance = new double*[graphs[k].num_nodes];
+		for (int i = 0; i < graphs[k].num_nodes; i++)
+			graphs[k].distance[i] = new double[graphs[k].num_nodes];
 
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
+		double *x = new double[graphs[k].num_nodes];
+		double *y = new double[graphs[k].num_nodes];
 		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+		for (int i = 0; i < graphs[k].num_nodes; i++)
 			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
 		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
+		fscanf(f, "%lf", &graphs[k].optimal_length);
 		fclose(f);
 
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+		for (int i = 0; i < graphs[k].num_nodes; i++)
+			for (int j = 0; j < graphs[k].num_nodes; j++)
+				graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
 
 		delete[] x;
 		delete[] y;
@@ -692,39 +693,40 @@ int read_training_data(t_graph *training_graphs)
 		if (!f)
 			return 0;
 
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
+		fscanf(f, "%d", &graphs[k].num_nodes);
 		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
+		graphs[k].distance = new double*[graphs[k].num_nodes];
+		for (int i = 0; i < graphs[k].num_nodes; i++)
+			graphs[k].distance[i] = new double[graphs[k].num_nodes];
 
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
+		double *x = new double[graphs[k].num_nodes];
+		double *y = new double[graphs[k].num_nodes];
 		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+		for (int i = 0; i < graphs[k].num_nodes; i++)
 			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
 		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
+		fscanf(f, "%lf", &graphs[k].optimal_length);
 		fclose(f);
 
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+		for (int i = 0; i < graphs[k].num_nodes; i++)
+			for (int j = 0; j < graphs[k].num_nodes; j++)
+				graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
 
 		delete[] x;
 		delete[] y;
-	}	return 1;
+	}	
+	return 1;
 }
 //---------------------------------------------------------------------------
-void delete_training_graphs(t_graph *&training_graphs, int num_training_graphs)
+void delete_graphs(t_graph *&graphs, int num_graphs)
 {
-	if (training_graphs) {
-		for (int i = 0; i < num_training_graphs; i++) {
-			for (int j = 0; j < training_graphs[i].num_nodes; j++)
-				delete[] training_graphs[i].distance[j];
-			delete[] training_graphs[i].distance;
+	if (graphs) {
+		for (int i = 0; i < num_graphs; i++) {
+			for (int j = 0; j < graphs[i].num_nodes; j++)
+				delete[] graphs[i].distance[j];
+			delete[] graphs[i].distance;
 		}
-		delete[] training_graphs;
+		delete[] graphs;
 	}
 }
 
@@ -788,7 +790,7 @@ void compute_local_variables(t_graph &graph, int num_visited, int current_node, 
 //--------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void fitness(t_chromosome &individual, t_graph *training_graphs, int num_training_graphs,
+double compute_fitness(t_chromosome &individual, t_graph *graphs, int num_graphs,
 			 int num_variables, double * vars_values, double *partial_values_array)
 
 {
@@ -800,21 +802,21 @@ void fitness(t_chromosome &individual, t_graph *training_graphs, int num_trainin
 	// we fill the "vars_values" array with this summarized information
 	// a function having vars_values as a parameter will be evolved
 
-	individual.fitness = 0;
+	double local_fitness = 0;
 
-	for (int k = 0; k < num_training_graphs; k++) {
+	for (int k = 0; k < num_graphs; k++) {
 
 		// set the value of variables
-		vars_values[min_distance_in_matrix] = training_graphs[k].min_distance;
-		vars_values[max_distance_in_matrix] = training_graphs[k].max_distance;
-		vars_values[average_distance_in_matrix] = training_graphs[k].average_distance;
-		vars_values[num_total_nodes] = training_graphs[k].num_nodes;
+		vars_values[min_distance_in_matrix] = graphs[k].min_distance;
+		vars_values[max_distance_in_matrix] = graphs[k].max_distance;
+		vars_values[average_distance_in_matrix] = graphs[k].average_distance;
+		vars_values[num_total_nodes] = graphs[k].num_nodes;
 
 		// initialize memory for the path
 
-		int *tsp_path = new int[training_graphs[k].num_nodes];
-		int *node_visited = new int[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+		int *tsp_path = new int[graphs[k].num_nodes];
+		int *node_visited = new int[graphs[k].num_nodes];
+		for (int i = 0; i < graphs[k].num_nodes; i++)
 			node_visited[i] = 0;
 
 		// init path
@@ -824,21 +826,21 @@ void fitness(t_chromosome &individual, t_graph *training_graphs, int num_trainin
 		count_nodes++;
 		double path_length = 0;
 
-		while (count_nodes < training_graphs[k].num_nodes) {
+		while (count_nodes < graphs[k].num_nodes) {
 			// fill the path node by node
 			double min_eval = DBL_MAX;
 			int best_node = -1;
 			// compute other statistics
 			vars_values[length_so_far] = path_length;
 			vars_values[num_visited_nodes] = count_nodes;
-			compute_local_variables(training_graphs[k], count_nodes, tsp_path[count_nodes - 1], node_visited, vars_values);
+			compute_local_variables(graphs[k], count_nodes, tsp_path[count_nodes - 1], node_visited, vars_values);
 
-			for (int node = 0; node < training_graphs[k].num_nodes; node++)
+			for (int node = 0; node < graphs[k].num_nodes; node++)
 				// consider each unvisited node
 				if (!node_visited[node]) {// not visited yet
-					vars_values[distance_to_next_node] = training_graphs[k].distance[tsp_path[count_nodes - 1]][node];
+					vars_values[distance_to_next_node] = graphs[k].distance[tsp_path[count_nodes - 1]][node];
 
-					calibrate_vars_values(vars_values,training_graphs, k);
+					calibrate_vars_values(vars_values, graphs, k);
 
 					double eval = evaluate(individual.simplified_prg, individual.num_utilized_instructions - 1, num_variables, vars_values, partial_values_array, individual.constants);
 					if (eval < min_eval) {
@@ -847,7 +849,7 @@ void fitness(t_chromosome &individual, t_graph *training_graphs, int num_trainin
 					}
 				}
 			// add the best next node to the path
-			path_length += training_graphs[k].distance[tsp_path[count_nodes - 1]][best_node];
+			path_length += graphs[k].distance[tsp_path[count_nodes - 1]][best_node];
 			node_visited[best_node] = 1;
 
 			tsp_path[count_nodes] = best_node;
@@ -855,15 +857,15 @@ void fitness(t_chromosome &individual, t_graph *training_graphs, int num_trainin
 
 		}
 		// connect the last with the first in the path
-		path_length += training_graphs[k].distance[tsp_path[count_nodes - 1]][tsp_path[0]];
-		individual.fitness += (path_length - training_graphs[k].optimal_length) / training_graphs[k].optimal_length * 100;
+		path_length += graphs[k].distance[tsp_path[count_nodes - 1]][tsp_path[0]];
+		local_fitness += (path_length - graphs[k].optimal_length) / graphs[k].optimal_length * 100;
 		// keep it in percent from the optimal solution, otherwise we have scalling problems
 
 		delete[] tsp_path;
 		delete[] node_visited;
 	}
-	individual.fitness /= (double)num_training_graphs; // average over the number of training graphs
-
+	local_fitness /= (double)num_graphs; // average over the number of training graphs
+	return local_fitness;
 }
 //-----------------------------------------------------------------
 // this function evolves in one execution thread a number o sub_population
@@ -885,7 +887,7 @@ void evolve_subpopulation_range( int generation_index, t_chromosome ** sub_popul
 		if (generation_index == 0) {
 			for (int i = 0; i < params->sub_population_size; i++) {
 				generate_random_chromosome(a_sub_population[i], *params, num_variables);
-				fitness(a_sub_population[i], training_graphs, params->num_training_graphs, num_variables,
+				compute_fitness(a_sub_population[i], training_graphs, params->num_training_graphs, num_variables,
 						vars_values, partial_values_array);
 			}
 			// sort ascendingly by fitness inside this population
@@ -908,12 +910,12 @@ void evolve_subpopulation_range( int generation_index, t_chromosome ** sub_popul
 				}
 				// mutate the result and compute fitness
 				mutation(offspring1, *params, num_variables);
-				fitness(offspring1, training_graphs, params->num_training_graphs, num_variables,
+				compute_fitness(offspring1, training_graphs, params->num_training_graphs, num_variables,
 						vars_values, partial_values_array);
 
 				// mutate the other offspring too
 				mutation(offspring2, *params, num_variables);
-				fitness(offspring2, training_graphs, params->num_training_graphs, num_variables,
+				compute_fitness(offspring2, training_graphs, params->num_training_graphs, num_variables,
 						vars_values, partial_values_array);
 
 				// replace the worst in the population
@@ -1107,7 +1109,7 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 // Newly created inviduals replace the worst ones (if the offspring are better) in the same (sub) population.
 //---------------------------------------------------------------------------
 
-void start_steady_state(t_parameters &params, t_graph *training_graphs,	int num_variables, run_parameters &r_params)
+void start_steady_state(t_parameters &params, t_graph *training_graphs, t_graph *validation_graphs, int num_variables, run_parameters &r_params)
 {
 	t_chromosome receive_chromosome;
 	allocate_chromosome(receive_chromosome, params);
@@ -1127,6 +1129,10 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs,	int num_
 	// allocate memory for variables
 	double* vars_values = new double[num_variables];
 
+	t_chromosome best_validation;
+	allocate_chromosome(best_validation, params);
+	double best_validation_fitness = DBL_MAX;
+
 	// evolve for a fixed number of generations
 	for (int generation = 0; generation < params.num_generations; generation++) { // for each generation
 		//int p = 0;
@@ -1139,6 +1145,18 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs,	int num_
 		for (int p = 1; p < params.num_sub_populations; p++)
 			if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
 				best_individual_subpop_index = p;
+
+
+		double *partial_values_array = new double[params.code_length];
+
+		sub_populations[best_individual_subpop_index][0].simplify(params.code_length);
+		double current_validation_fitness = compute_fitness(sub_populations[best_individual_subpop_index][0], validation_graphs, params.num_training_graphs, num_variables, vars_values, partial_values_array);
+
+		if (!generation || generation && current_validation_fitness < best_validation_fitness) {
+			best_validation_fitness = current_validation_fitness;
+			copy_individual(best_validation, sub_populations[best_individual_subpop_index][0], params);
+		}
+		delete[] partial_values_array;
 
 //print to log file the intermediary results
 #ifndef USE_MPI
@@ -1180,7 +1198,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs,	int num_
 #ifdef USE_MPI
 	if (r_params.current_id==0)
 #endif
-		file_print_chromosome(sub_populations[0][0], params, num_variables,r_params.result_file);
+		file_print_chromosome(best_validation, params, num_variables, r_params.result_file);
 
 	// free memory - for allocated populations
 	for (int p = 0; p < params.num_sub_populations; p++) {
@@ -1190,6 +1208,8 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs,	int num_
 	}
 	delete[] sub_populations;
 	delete_chromosome(receive_chromosome);
+	delete_chromosome(best_validation);
+
 }
 
 
@@ -1358,7 +1378,8 @@ int init_params_config_file(run_parameters & r_params, t_parameters& params) {
 
 
 	fclose(f);
-	params.num_training_graphs = 4;
+	params.num_training_graphs = 2;
+	params.num_validation_graphs = 2;
 
 	return 0;
 }
@@ -1480,7 +1501,8 @@ int init_files(t_parameters & t_params, run_parameters &r_params){
 //--------------------------------------------------------------------
 // main function for non MPI case
 //--------------------------------------------------------------------
-int  main_no_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *training_graphs,int argc, char* argv[]){
+int  main_no_mpi(t_parameters& t_params, run_parameters& r_params, t_graph *training_graphs, t_graph *validation_graphs, int argc, char* argv[])
+{
 
 	init_run_params_command_line(r_params,  argc, argv);
 
@@ -1492,8 +1514,8 @@ int  main_no_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *traini
 
 	set_name_files(t_params, r_params);
 
-	if (allocate_training_graphs(training_graphs, t_params.num_training_graphs)) {
-		int read_sum = read_training_data(training_graphs);
+	if (allocate_graphs(training_graphs, t_params.num_training_graphs)) {
+		int read_sum = read_training_graphs(training_graphs);
 		if (read_sum < 1) {
 			printf("Cannot find input file(s)! Please specify the full path!\n");
 			printf("Press Enter ...");
@@ -1508,8 +1530,9 @@ int  main_no_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *traini
 
 		printf("Evolving. ..\n");
 
-		start_steady_state(t_params, training_graphs, num_variables, r_params);
-		delete_training_graphs(training_graphs, t_params.num_training_graphs);
+		start_steady_state(t_params, training_graphs, validation_graphs, num_variables, r_params);
+		delete_graphs(training_graphs, t_params.num_training_graphs);
+		delete_graphs(training_graphs, t_params.num_training_graphs);
 
 		printf("Press enter ...");
 		getchar();
@@ -1521,14 +1544,11 @@ int  main_no_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *traini
 
 }
 //--------------------------------------------------------------------
-//--------------------------------------------------------------------
 // main function for  MPI case
 //--------------------------------------------------------------------
-int main_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *training_graphs,int argc, char* argv[])
+int main_mpi(t_parameters& t_params, run_parameters& r_params, t_graph *training_graphs, t_graph *validation_graphs, int argc, char* argv[])
 {
-
 		double starttime, endtime, computetime, compute_sum=0, compute_max=0;
-
 
 #ifndef  USE_THREADS
 
@@ -1577,12 +1597,14 @@ int main_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *training_g
 
 
 		//all processes will read the graphs
-		bool alloc_signal = allocate_training_graphs(training_graphs, t_params.num_training_graphs);
+		bool alloc_signal = allocate_graphs(training_graphs, t_params.num_training_graphs);
+		alloc_signal = allocate_graphs(validation_graphs, t_params.num_validation_graphs);
 		if (alloc_signal) {
 
 			//reading graphs
 			int read_sum = 0, verif_read_sum = 0;
-			read_sum = read_training_data(training_graphs);
+			read_sum = read_training_graphs(training_graphs);
+			read_sum = read_validation_graphs(validation_graphs);
 			MPI_Allreduce(&read_sum, &verif_read_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 			if (verif_read_sum == r_params.num_procs) {
 
@@ -1603,7 +1625,7 @@ int main_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *training_g
 
 				printf("Evolving. proc ID=%d ..\n", r_params.current_id);
 				//start the evolution
-				start_steady_state(t_params, training_graphs, num_variables, r_params);
+				start_steady_state(t_params, training_graphs, validation_graphs, num_variables, r_params);
 
 				//	MPI_File_close(&file);
 
@@ -1637,7 +1659,8 @@ int main_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *training_g
 			}
 			else	printf("graphs were not correctly read\n");
 
-			delete_training_graphs(training_graphs, t_params.num_training_graphs);
+			delete_graphs(training_graphs, t_params.num_training_graphs);
+			delete_graphs(validation_graphs, t_params.num_validation_graphs);
 		}
 		else	printf("the space for the graphs was not correctly allocated\n");
 		MPI_Finalize();
@@ -1647,18 +1670,17 @@ int main_mpi(t_parameters& t_params,run_parameters& r_params,t_graph *training_g
 //--------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
-
 	t_parameters t_params;
 	run_parameters r_params;
 
 	t_graph *training_graphs = NULL;
+	t_graph *validation_graphs = NULL;
 
 #ifndef USE_MPI
 	return main_no_mpi( t_params, r_params, training_graphs,  argc, argv);
 #else
-	return main_mpi( t_params, r_params, training_graphs,  argc, argv);
+	return main_mpi(t_params, r_params, training_graphs, validation_graphs, argc, argv);
 #endif
 
 }
-//--------------------------------------------------------------------
 //--------------------------------------------------------------------
