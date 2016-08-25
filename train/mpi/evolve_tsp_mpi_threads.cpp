@@ -1296,7 +1296,8 @@ void init_params(t_parameters& params) {
 	params.constants_min = -1;
 	params.constants_max = 1;
 	params.num_migrations =2;
-	params.num_training_graphs = 4;
+	params.num_training_graphs = 2;
+	params.num_validation_graphs = 2;
 }
 
 
