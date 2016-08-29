@@ -1,6 +1,6 @@
 //---------------------------------------------------------------------------
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com), Virginia Niculescu (vniculescu@cs.ubbcluj.ro)
-//   Version 2016.06.26.0 // year.month.day.build#
+//   Version 2016.08.29.1 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -602,7 +602,7 @@ int read_training_graphs(t_graph *graphs)
 	//4 graphs are read
 	int k = 0; // count the graphs
 	{
-		FILE* f = fopen("data//bayg29.tsp", "r");
+		FILE* f = fopen("data/bayg29.tsp", "r");
 		if (!f)
 			return 0;
 
@@ -628,7 +628,7 @@ int read_training_graphs(t_graph *graphs)
 	}
 	{
 		k++;
-		FILE* f = fopen("data//a280.tsp", "r");
+		FILE* f = fopen("data/a280.tsp", "r");
 		if (!f)
 			return 0;
 
@@ -654,6 +654,7 @@ int read_training_graphs(t_graph *graphs)
 		delete[] x;
 		delete[] y;
 	}
+	return 1;
 }
 //----------------------------------------------------------------------
 int read_validation_graphs(t_graph *graphs)
@@ -661,7 +662,7 @@ int read_validation_graphs(t_graph *graphs)
 		int k = 0;
 	{
 		
-		FILE* f = fopen("data//berlin52.tsp", "r");
+		FILE* f = fopen("data/berlin52.tsp", "r");
 		if (!f)
 			return 0;
 
@@ -689,7 +690,7 @@ int read_validation_graphs(t_graph *graphs)
 	}
 	{
 		k++;
-		FILE* f = fopen("data//bier127.tsp", "r");
+		FILE* f = fopen("data/bier127.tsp", "r");
 		if (!f)
 			return 0;
 
@@ -1101,7 +1102,10 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 	MPI_File_close(&file);
 
 	return  err;
+#else
+	return 1;
 #endif
+	
 }
 //---------------------------------------------------------------------------
 // the main evolution function
@@ -1379,8 +1383,6 @@ int init_params_config_file(run_parameters & r_params, t_parameters& params) {
 
 
 	fclose(f);
-	params.num_training_graphs = 2;
-	params.num_validation_graphs = 2;
 
 	return 0;
 }
@@ -1500,53 +1502,9 @@ int init_files(t_parameters & t_params, run_parameters &r_params){
 
 
 //--------------------------------------------------------------------
-// main function for non MPI case
-//--------------------------------------------------------------------
-int  main_no_mpi(t_parameters& t_params, run_parameters& r_params, t_graph *training_graphs, t_graph *validation_graphs, int argc, char* argv[])
-{
-
-	init_run_params_command_line(r_params,  argc, argv);
-
-	if  (!init_run_params_config_file(r_params) )
-		init_run_params(r_params);
-
-	if (!init_params_config_file( r_params, t_params))
-		init_params(t_params);
-
-	set_name_files(t_params, r_params);
-
-	if (allocate_graphs(training_graphs, t_params.num_training_graphs)) {
-		int read_sum = read_training_graphs(training_graphs);
-		if (read_sum < 1) {
-			printf("Cannot find input file(s)! Please specify the full path!\n");
-			printf("Press Enter ...");
-			getchar();
-			return 1;
-		}
-
-		compute_global_variables(training_graphs, t_params.num_training_graphs);
-		int num_variables = 10;
-
-		//srand(current_proc_id); // we run each process with a different seed
-
-		printf("Evolving. ..\n");
-
-		start_steady_state(t_params, training_graphs, validation_graphs, num_variables, r_params);
-		delete_graphs(training_graphs, t_params.num_training_graphs);
-		delete_graphs(training_graphs, t_params.num_training_graphs);
-
-		printf("Press enter ...");
-		getchar();
-
-		return 0;
-	}
-	else
-		return 1;
-
-}
-//--------------------------------------------------------------------
 // main function for  MPI case
 //--------------------------------------------------------------------
+#ifdef USE_MPI
 int main_mpi(t_parameters& t_params, run_parameters& r_params, t_graph *training_graphs, t_graph *validation_graphs, int argc, char* argv[])
 {
 		double starttime, endtime, computetime, compute_sum=0, compute_max=0;
@@ -1620,6 +1578,7 @@ int main_mpi(t_parameters& t_params, run_parameters& r_params, t_graph *training
 				starttime = MPI_Wtime();
 
 				compute_global_variables(training_graphs, t_params.num_training_graphs);
+				compute_global_variables(validation_graphs, t_params.num_validation_graphs);
 				int num_variables = 10;
 
 				srand(r_params.current_id + r_params.num_procs); // we run each process with a different seed
@@ -1669,6 +1628,59 @@ int main_mpi(t_parameters& t_params, run_parameters& r_params, t_graph *training
 }
 
 //--------------------------------------------------------------------
+#else
+//--------------------------------------------------------------------
+// main function for non MPI case
+//--------------------------------------------------------------------
+int  main_no_mpi(t_parameters& t_params, run_parameters& r_params, t_graph *training_graphs, t_graph *validation_graphs, int argc, char* argv[])
+{
+
+	init_run_params_command_line(r_params, argc, argv);
+
+	if (init_run_params_config_file(r_params))
+		init_run_params(r_params);
+
+	if (init_params_config_file(r_params, t_params))
+		init_params(t_params);
+
+	set_name_files(t_params, r_params);
+
+	bool alloc_signal = allocate_graphs(training_graphs, t_params.num_training_graphs);
+	alloc_signal = allocate_graphs(validation_graphs, t_params.num_validation_graphs);
+
+	if (alloc_signal) {
+		int read_sum = read_training_graphs(training_graphs);
+		read_sum = read_validation_graphs(validation_graphs);
+
+		if (read_sum < 1) {
+			printf("Cannot find input file(s)! Please specify the full path!\n");
+			printf("Press Enter ...");
+			getchar();
+			return 1;
+		}
+
+		compute_global_variables(training_graphs, t_params.num_training_graphs);
+		int num_variables = 10;
+
+		//srand(current_proc_id); // we run each process with a different seed
+
+		printf("Evolving. ..\n");
+
+		start_steady_state(t_params, training_graphs, validation_graphs, num_variables, r_params);
+		delete_graphs(training_graphs, t_params.num_training_graphs);
+		delete_graphs(validation_graphs, t_params.num_validation_graphs);
+
+		printf("Press enter ...");
+		getchar();
+
+		return 0;
+	}
+	else
+		return 1;
+
+}
+#endif
+//--------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
 	t_parameters t_params;
@@ -1677,8 +1689,12 @@ int main(int argc, char* argv[])
 	t_graph *training_graphs = NULL;
 	t_graph *validation_graphs = NULL;
 
+	t_params.num_training_graphs = 2;
+	t_params.num_validation_graphs = 2;
+
+
 #ifndef USE_MPI
-	return main_no_mpi( t_params, r_params, training_graphs,  argc, argv);
+	return main_no_mpi(t_params, r_params, training_graphs, validation_graphs, argc, argv);
 #else
 	return main_mpi(t_params, r_params, training_graphs, validation_graphs, argc, argv);
 #endif
