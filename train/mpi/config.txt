@@ -1,7 +1,7 @@
 num_sub_populations= 1
 sub_population_size= 200
-code_length= 10
-num_generations= 50
+code_length= 20
+num_generations= 7
 mutation_probability= 0.01
 crossover_probability= 0.9
 variables_probability= 0.4

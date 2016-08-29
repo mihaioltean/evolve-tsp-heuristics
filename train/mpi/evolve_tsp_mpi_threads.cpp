@@ -1351,7 +1351,7 @@ int init_params_config_file(run_parameters & r_params, t_parameters& params) {
 	fscanf(f, "%s %d",text, &params.code_length );
 	if (params.code_length<1) params.code_length = 10;
 
-	//fscanf(f, "%s %d",text,&params.num_generations);// the number of generations
+	fscanf(f, "%s %d",text,&params.num_generations);// the number of generations
 	if(params.num_generations<1) params.num_generations=10;
 
 	fscanf(f, "%s %lf",text,&params.mutation_probability );   // mutation probability
