@@ -37,7 +37,7 @@
 
 //--------------------------------------------------------------------
 
-//#define USE_THREADS
+#define USE_THREADS
 #define USE_MPI
 
 #define SIMPLIFY
@@ -1340,45 +1340,47 @@ int init_params_config_file(run_parameters & r_params, t_parameters& params) {
 		return 1; //error - config file does not exist r couldn't be opened
 	}
 
-	fscanf(f, "%d",&params.num_sub_populations );
+	char text[40];
+
+	fscanf(f, "%s %d",text, &params.num_sub_populations );
 	if (params.num_sub_populations<1) params.num_sub_populations = 10;
 
-	fscanf(f, "%d",&params.sub_population_size );     // the number of individuals in population  (must be an even number!)
+	fscanf(f, "%s %d",text, &params.sub_population_size );     // the number of individuals in population  (must be an even number!)
 	if (params.sub_population_size<1) params.sub_population_size = 10;
 
-	fscanf(f, "%d",&params.code_length );
+	fscanf(f, "%s %d",text, &params.code_length );
 	if (params.code_length<1) params.code_length = 10;
 
-	fscanf(f, "%d",&params.num_generations);// the number of generations
+	//fscanf(f, "%s %d",text,&params.num_generations);// the number of generations
 	if(params.num_generations<1) params.num_generations=10;
 
-	fscanf(f, "%lf",&params.mutation_probability );   // mutation probability
+	fscanf(f, "%s %lf",text,&params.mutation_probability );   // mutation probability
 	if (params.mutation_probability<0 || params.mutation_probability>1) params.mutation_probability = 0.1;
 
-	fscanf(f, "%lf",&params.crossover_probability );   // crossover probability
+	fscanf(f, "%s %lf",text,&params.crossover_probability );   // crossover probability
 	if (params.crossover_probability<0 || params.crossover_probability>1) params.crossover_probability = 0.9;
 
-	fscanf(f, "%lf",&params.variables_probability  );   // crossover probability
+	fscanf(f, "%s %lf",text, &params.variables_probability  );   // crossover probability
 	if (params.variables_probability<0 || params.variables_probability >1) params.variables_probability  = 0.4;
 
-	fscanf(f, "%lf",&params.operators_probability );   // crossover probability
+	fscanf(f, "%s %lf",text,&params.operators_probability );   // crossover probability
 	if (params.operators_probability<0 || params.operators_probability>1) params.operators_probability = 0.5;
 
 	// / sum of variables_prob + operators_prob + constants_prob MUST BE 1 !
 	params.constants_probability = 1 - params.variables_probability - params.operators_probability;
 
 
-	fscanf(f, "%d",&params.num_constants );   // use a no. of constants from (constants_min...constants_max )interval
+	fscanf(f, "%s %d",text,&params.num_constants );   // use a no. of constants from (constants_min...constants_max )interval
 	if( params.num_constants<1)
 		params.num_constants = 3;
-	fscanf(f, "%lf",&params.constants_min );
-	fscanf(f, "%lf",&params.constants_max);
+	fscanf(f, "%s %lf",text, &params.constants_min );
+	fscanf(f, "%s %lf",text, &params.constants_max);
 	if( params.constants_min >=	params.constants_max){
 		params.constants_min = -1;
 		params.constants_max = 1;
 	}
 
-	fscanf(f, "%d",&params.num_migrations );   // use a no. of individuals that are moved between super-populations
+	fscanf(f, "%s %d",text, &params.num_migrations );   // use a no. of individuals that are moved between super-populations
 	if( params.num_migrations<1) params.num_migrations = 1;
 
 
@@ -1392,16 +1394,17 @@ int init_params_config_file(run_parameters & r_params, t_parameters& params) {
 int init_run_params_config_file(run_parameters& r_params) {
 
 	r_params.recv_no = 0;
+	char text[40];
 
 	FILE* f = fopen(r_params.run_config_file,"r");
 	if (!f){
 		return 1; //error - config file does not exist or couldn't be opened
 	}
-	fscanf(f, "%s",r_params.log_file );         // the name of the log file
-	fscanf(f, "%s",r_params.result_file );      // the name of the result file
+	fscanf(f, "%s %s", text, r_params.log_file );         // the name of the log file
+	fscanf(f, "%s %s", text, r_params.result_file );      // the name of the result file
 
 #ifdef USE_THREADS
-	fscanf(f, "%d",&r_params.num_threads);
+	fscanf(f, "%s %d",text, &r_params.num_threads);
 	if (r_params.num_threads == 0) r_params.num_threads = 1;
 #endif
 

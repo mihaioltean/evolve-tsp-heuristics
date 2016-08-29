@@ -1,12 +1,12 @@
-1
-200
-10
-20
-0.01
-0.9
-0.4
-0.5
-3
--1
-1
-2
+num_sub_populations= 1
+sub_population_size= 200
+code_length= 10
+num_generations= 50
+mutation_probability= 0.01
+crossover_probability= 0.9
+variables_probability= 0.4
+operators_probability= 0.5
+num_constants= 3
+constants_min= -1
+constants_max= 1
+num_migrations= 2

@@ -1,3 +1,3 @@
-results/log
-results/res
-10
+name_of_log_file= results/log
+name_of_result_file= results/res
+num_threads= 10
