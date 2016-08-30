@@ -729,7 +729,7 @@ void compute_local_variables(t_graph &graph, int num_visited, int current_node, 
 	vars_values[average_distance_to_unvisited] /= (double)(graph.num_nodes - num_visited);
 }
 //--------------------------------------------------------------------
-double fitness(t_chromosome &individual, t_graph *training_graphs, int num_training_graphs, int num_variables, double * vars_values, double *partial_values_array)
+double compute_fitness(t_chromosome &individual, t_graph *training_graphs, int num_training_graphs, int num_variables, double * vars_values, double *partial_values_array)
 {
 	// fitness is the sum of errors over all training graphs.
 	// error is the distance from the optimum
@@ -832,7 +832,7 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 				for (int i = 0; i < params->sub_population_size; i++) {
 					generate_random_chromosome(a_sub_population[i], *params, num_variables);
 
-					a_sub_population[i].fitness = fitness(a_sub_population[i], training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+					a_sub_population[i].fitness = compute_fitness(a_sub_population[i], training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 
 				}
 				// sort ascendingly by fitness inside this population
@@ -855,11 +855,11 @@ void evolve_one_subpopulation(int *current_subpop_index, t_chromosome ** sub_pop
 					}
 					// mutate the result and compute fitness
 					mutation(offspring1, *params, num_variables);
-					offspring1.fitness = fitness(offspring1, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+					offspring1.fitness = compute_fitness(offspring1, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 
 					// mutate the other offspring too
 					mutation(offspring2, *params, num_variables);
-					offspring2.fitness = fitness(offspring2, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+					offspring2.fitness = compute_fitness(offspring2, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
 
 					// replace the worst in the population
 					if (offspring1.fitness < a_sub_population[params->sub_population_size - 1].fitness) {
@@ -948,7 +948,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 		double *partial_values_array = new double[params.code_length];
 
 		sub_populations[best_individual_subpop_index][0].simplify(params.code_length);
-		double current_validation_fitness = fitness(sub_populations[best_individual_subpop_index][0], validation_graphs, num_validation_graphs, num_variables, vars_values, partial_values_array);
+		double current_validation_fitness = compute_fitness(sub_populations[best_individual_subpop_index][0], validation_graphs, num_validation_graphs, num_variables, vars_values, partial_values_array);
 
 		if (!generation || generation && current_validation_fitness < best_validation_fitness) {
 			best_validation_fitness = current_validation_fitness;
