@@ -1,6 +1,6 @@
 //---------------------------------------------------------------------------
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com), Virginia Niculescu (vniculescu@cs.ubbcluj.ro)
-//   Version 2016.08.29.2 // year.month.day.build#
+//   Version 2016.08.30.0 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -892,7 +892,7 @@ void evolve_subpopulation_range(int generation_index, t_chromosome ** sub_popula
 		if (generation_index == 0) {
 			for (int i = 0; i < params->sub_population_size; i++) {
 				generate_random_chromosome(a_sub_population[i], *params, num_variables);
-				compute_fitness(a_sub_population[i], training_graphs, params->num_training_graphs, num_variables,
+				a_sub_population[i].fitness = compute_fitness(a_sub_population[i], training_graphs, params->num_training_graphs, num_variables,
 					vars_values, partial_values_array);
 			}
 			// sort ascendingly by fitness inside this population
@@ -915,12 +915,12 @@ void evolve_subpopulation_range(int generation_index, t_chromosome ** sub_popula
 				}
 				// mutate the result and compute fitness
 				mutation(offspring1, *params, num_variables);
-				compute_fitness(offspring1, training_graphs, params->num_training_graphs, num_variables,
+				offspring1.fitness = compute_fitness(offspring1, training_graphs, params->num_training_graphs, num_variables,
 					vars_values, partial_values_array);
 
 				// mutate the other offspring too
 				mutation(offspring2, *params, num_variables);
-				compute_fitness(offspring2, training_graphs, params->num_training_graphs, num_variables,
+				offspring2.fitness = compute_fitness(offspring2, training_graphs, params->num_training_graphs, num_variables,
 					vars_values, partial_values_array);
 
 				// replace the worst in the population
