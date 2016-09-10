@@ -1,6 +1,6 @@
 //---------------------------------------------------------------------------
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com), Virginia Niculescu (vniculescu@cs.ubbcluj.ro)
-//   Version 2016.08.30.0 // year.month.day.build#
+//   Version 2016.09.10.0 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -655,7 +655,63 @@ int read_training_graphs(t_graph *graphs)
 		delete[] x;
 		delete[] y;
 	}
-	return 1;
+	{
+		k++;
+		FILE* f = fopen("data/brazil58.tsp", "r");
+		if (!f)
+			return 0;
+
+		fscanf(f, "%d", &graphs[k].num_nodes);
+		// allocate the memory first
+		graphs[k].distance = new double*[graphs[k].num_nodes];
+		for (int i = 0; i < graphs[k].num_nodes; i++)
+			graphs[k].distance[i] = new double[graphs[k].num_nodes];
+		// now read the data
+		for (int i = 0; i < graphs[k].num_nodes - 1; i++)
+			for (int j = i; j < graphs[k].num_nodes; j++)
+				if (i != j) {
+					fscanf(f, "%lf", &graphs[k].distance[i][j]);
+					graphs[k].distance[j][i] = graphs[k].distance[i][j];
+				}
+				else
+					graphs[k].distance[i][i] = 0;
+
+		// now read the length of the shortest path
+		fscanf(f, "%lf", &graphs[k].optimal_length);
+
+		fclose(f);
+	}
+		{
+			k++;
+			FILE* f = fopen("data/ch130.tsp", "r");
+			if (!f)
+				return 0;
+
+			fscanf(f, "%d", &graphs[k].num_nodes);
+			// allocate the memory first
+			graphs[k].distance = new double*[graphs[k].num_nodes];
+			for (int i = 0; i < graphs[k].num_nodes; i++)
+				graphs[k].distance[i] = new double[graphs[k].num_nodes];
+
+			double *x = new double[graphs[k].num_nodes];
+			double *y = new double[graphs[k].num_nodes];
+			int index;
+			for (int i = 0; i < graphs[k].num_nodes; i++)
+				fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+			// now read the length of the shortest path
+			fscanf(f, "%lf", &graphs[k].optimal_length);
+			fclose(f);
+
+			for (int i = 0; i < graphs[k].num_nodes; i++)
+				for (int j = 0; j < graphs[k].num_nodes; j++)
+					graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+			delete[] x;
+			delete[] y;
+		}
+
+
+		return 1;
 }
 //----------------------------------------------------------------------
 int read_validation_graphs(t_graph *graphs)
@@ -717,7 +773,67 @@ int read_validation_graphs(t_graph *graphs)
 		delete[] x;
 		delete[] y;
 	}
-	return 1;
+
+			{
+				k++;
+				FILE* f = fopen("data/ch150.tsp", "r");
+				if (!f)
+					return 0;
+
+				fscanf(f, "%d", &graphs[k].num_nodes);
+				// allocate the memory first
+				graphs[k].distance = new double*[graphs[k].num_nodes];
+				for (int i = 0; i < graphs[k].num_nodes; i++)
+					graphs[k].distance[i] = new double[graphs[k].num_nodes];
+
+				double *x = new double[graphs[k].num_nodes];
+				double *y = new double[graphs[k].num_nodes];
+				int index;
+				for (int i = 0; i < graphs[k].num_nodes; i++)
+					fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+				// now read the length of the shortest path
+				fscanf(f, "%lf", &graphs[k].optimal_length);
+				fclose(f);
+
+				for (int i = 0; i < graphs[k].num_nodes; i++)
+					for (int j = 0; j < graphs[k].num_nodes; j++)
+						graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+				delete[] x;
+				delete[] y;
+			}
+
+					{
+						k++;
+						FILE* f = fopen("data/eil101.tsp", "r");
+						if (!f)
+							return 0;
+
+						fscanf(f, "%d", &graphs[k].num_nodes);
+						// allocate the memory first
+						graphs[k].distance = new double*[graphs[k].num_nodes];
+						for (int i = 0; i < graphs[k].num_nodes; i++)
+							graphs[k].distance[i] = new double[graphs[k].num_nodes];
+
+						double *x = new double[graphs[k].num_nodes];
+						double *y = new double[graphs[k].num_nodes];
+						int index;
+						for (int i = 0; i < graphs[k].num_nodes; i++)
+							fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+						// now read the length of the shortest path
+						fscanf(f, "%lf", &graphs[k].optimal_length);
+						fclose(f);
+
+						for (int i = 0; i < graphs[k].num_nodes; i++)
+							for (int j = 0; j < graphs[k].num_nodes; j++)
+								graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+						delete[] x;
+						delete[] y;
+					}
+
+
+					return 1;
 }
 //---------------------------------------------------------------------------
 void delete_graphs(t_graph *&graphs, int num_graphs)
@@ -870,7 +986,7 @@ double compute_fitness(t_chromosome &individual, t_graph *graphs, int num_graphs
 	}
 	local_fitness /= (double)num_graphs; // average over the number of training graphs
 	return local_fitness;
-}
+	}
 //-----------------------------------------------------------------
 // this function evolves in one execution thread a number o sub_population
 // inside the range defined by [ start, stop)
@@ -982,7 +1098,7 @@ void evolve_subpopulations(run_parameters & r_params, t_chromosome ** sub_popula
 	delete[] t;
 	//	printf("debug proc %d t generation %d final after deleting threads\n", r_params.current_id, generation_index);
 #else
-	evolve_subpopulation_range( generation_index, sub_populations, params, training_graphs,
+	evolve_subpopulation_range(generation_index, sub_populations, params, training_graphs,
 		num_variables, vars_values, 0, params->num_sub_populations);
 #endif
 }
@@ -1216,7 +1332,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, t_graph 
 		for (int i = 0; i < params.sub_population_size; i++)
 			delete_chromosome(sub_populations[p][i]);
 		delete[] sub_populations[p];
-	}
+}
 	delete[] sub_populations;
 	delete_chromosome(receive_chromosome);
 	delete_chromosome(best_program_on_validation);
@@ -1327,7 +1443,7 @@ void set_name_files(t_parameters& t_params, run_parameters &r_params)
 #ifdef USE_THREADS
 	sprintf(np, "_g%d_t%d.txt", t_params.num_generations, r_params.num_threads);
 #else
-	sprintf(np,"_g%d.txt",t_params.num_generations);
+	sprintf(np, "_g%d.txt", t_params.num_generations);
 #endif
 
 #else
@@ -1335,7 +1451,7 @@ void set_name_files(t_parameters& t_params, run_parameters &r_params)
 #ifdef USE_THREADS
 	sprintf(np, "_g%d_t%d_p%d.txt", t_params.num_generations, r_params.num_threads, r_params.num_procs);
 #else
-	sprintf(np,"_g%d_p%d.txt",t_params.num_generations,r_params.num_procs);
+	sprintf(np, "_g%d_p%d.txt", t_params.num_generations, r_params.num_procs);
 #endif
 #endif
 	strcat(r_params.result_file, np);
@@ -1412,7 +1528,7 @@ int init_run_params_config_file(run_parameters& r_params)
 	FILE* f = fopen(r_params.run_config_file, "r");
 	if (!f) {
 		return 1; //error - config file does not exist or couldn't be opened
-	}
+}
 	fscanf(f, "%s %s", text, r_params.log_file);         // the name of the log file
 	fscanf(f, "%s %s", text, r_params.result_file);      // the name of the result file
 
@@ -1637,7 +1753,7 @@ int main_mpi(t_parameters& t_params, run_parameters& r_params, t_graph *training
 
 		delete_graphs(training_graphs, t_params.num_training_graphs);
 		delete_graphs(validation_graphs, t_params.num_validation_graphs);
-	}
+}
 	else	printf("the space for the graphs was not correctly allocated\n");
 	MPI_Finalize();
 	return 0;
@@ -1705,8 +1821,8 @@ int main(int argc, char* argv[])
 	t_graph *training_graphs = NULL;
 	t_graph *validation_graphs = NULL;
 
-	t_params.num_training_graphs = 2;
-	t_params.num_validation_graphs = 2;
+	t_params.num_training_graphs = 4;
+	t_params.num_validation_graphs = 5;
 
 
 #ifndef USE_MPI
