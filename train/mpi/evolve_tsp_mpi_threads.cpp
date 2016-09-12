@@ -714,6 +714,8 @@ int read_training_graphs(t_graph *graphs)
 		return 1;
 }
 //----------------------------------------------------------------------
+// validation is done using othher 4 graphs
+//----------------------------------------------------------------------
 int read_validation_graphs(t_graph *graphs)
 {
 	int k = 0;
@@ -1060,7 +1062,7 @@ void evolve_subpopulation_range(int generation_index, t_chromosome ** sub_popula
 // all the sub_populations are evolved
 // this function that works either in case of using threads or in case when threads are not used
 //-----------------------------------------------------------------
-void evolve_subpopulations(run_parameters & r_params, t_chromosome ** sub_populations, int generation_index,
+void evolve_subpopulations(run_parameters & r_params, t_chromosome ** sub_populations, int &generation_index,
 	t_parameters *params, t_graph *training_graphs,
 	int num_variables, double* vars_values)
 {
@@ -1279,7 +1281,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, t_graph 
 		sub_populations[best_individual_subpop_index][0].simplify(params.code_length);
 		double current_validation_fitness = compute_fitness(sub_populations[best_individual_subpop_index][0], validation_graphs, params.num_training_graphs, num_variables, vars_values, partial_values_array);
 
-		if (!generation || generation && current_validation_fitness < best_validation_fitness) {
+		if (!generation || (generation && current_validation_fitness < best_validation_fitness)) {
 			best_validation_fitness = current_validation_fitness;
 			copy_individual(best_program_on_validation, sub_populations[best_individual_subpop_index][0], params);
 		}
@@ -1426,8 +1428,8 @@ void init_params(t_parameters& params)
 	params.constants_min = -1;
 	params.constants_max = 1;
 	params.num_migrations = 2;
-	params.num_training_graphs = 2;
-	params.num_validation_graphs = 2;
+	params.num_training_graphs = 4;
+	params.num_validation_graphs = 4;
 }
 
 
@@ -1595,6 +1597,7 @@ int init_files(t_parameters & t_params, run_parameters &r_params)
 		fprintf(f, "constants_max %f \n", t_params.constants_max);
 
 		fprintf(f, "num_training_graphs = %d\n", t_params.num_training_graphs);
+		fprintf(f, "num_validation_graphs = %d\n", t_params.num_validation_graphs);
 		fprintf(f, "_______________________________________________________________\n");
 
 		fclose(f);
@@ -1623,6 +1626,7 @@ int init_files(t_parameters & t_params, run_parameters &r_params)
 		fprintf(f, "constants_max %f \n", t_params.constants_max);
 
 		fprintf(f, "num_training_graphs = %d\n", t_params.num_training_graphs);
+		fprintf(f, "num_validation_graphs = %d\n", t_params.num_validation_graphs);
 		fprintf(f, "___________________________________________________\n");
 		fclose(f);
 
@@ -1646,7 +1650,7 @@ int main_mpi(t_parameters& t_params, run_parameters& r_params, t_graph *training
 	MPI_Init(&argc, &argv);
 #else
 
-	int provided, flag, claimed, errs;
+	int provided, flag, claimed, errs=0;
 	MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
 
 	MPI_Is_thread_main(&flag);
@@ -1688,16 +1692,21 @@ int main_mpi(t_parameters& t_params, run_parameters& r_params, t_graph *training
 
 
 	//all processes will read the graphs
-	bool alloc_signal = allocate_graphs(training_graphs, t_params.num_training_graphs);
-	alloc_signal = allocate_graphs(validation_graphs, t_params.num_validation_graphs);
-	if (alloc_signal) {
+
+	bool alloc_signal1 = allocate_graphs(training_graphs, t_params.num_training_graphs);
+	bool alloc_signal2 = allocate_graphs(validation_graphs, t_params.num_validation_graphs);
+
+
+	if (alloc_signal1 && alloc_signal2 ) {
 
 		//reading graphs
-		int read_sum = 0, verif_read_sum = 0;
-		read_sum = read_training_graphs(training_graphs);
-		read_sum = read_validation_graphs(validation_graphs);
-		MPI_Allreduce(&read_sum, &verif_read_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-		if (verif_read_sum == r_params.num_procs) {
+		int read_sum1 = 0, read_sum2=0, verif_read_sum1 = 0,verif_read_sum2 = 0 ;
+		read_sum1 = read_training_graphs(training_graphs);
+		read_sum2 = read_validation_graphs(validation_graphs);
+
+		MPI_Allreduce(&read_sum1, &verif_read_sum1, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+		MPI_Allreduce(&read_sum2, &verif_read_sum2, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+		if (verif_read_sum1 == r_params.num_procs && verif_read_sum1 == r_params.num_procs) {
 
 			//an attempt to improve writing into the log file - no to be open and closed each time
 			//	MPI_File file;
@@ -1822,7 +1831,7 @@ int main(int argc, char* argv[])
 	t_graph *validation_graphs = NULL;
 
 	t_params.num_training_graphs = 4;
-	t_params.num_validation_graphs = 5;
+	t_params.num_validation_graphs = 4;
 
 
 #ifndef USE_MPI
