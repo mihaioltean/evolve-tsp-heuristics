@@ -1,6 +1,6 @@
 //---------------------------------------------------------------------------
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com), Virginia Niculescu (vniculescu@cs.ubbcluj.ro)
-//   Version 2016.09.10.0 // year.month.day.build#
+//   Version 2016.11.09.0 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -710,6 +710,123 @@ int read_training_graphs(t_graph *graphs)
 			delete[] y;
 		}
 
+		{
+			k++;
+			FILE* f = fopen("data/d198.tsp", "r");
+			if (!f)
+				return 0;
+
+			fscanf(f, "%d", &graphs[k].num_nodes);
+			// allocate the memory first
+			graphs[k].distance = new double*[graphs[k].num_nodes];
+			for (int i = 0; i < graphs[k].num_nodes; i++)
+				graphs[k].distance[i] = new double[graphs[k].num_nodes];
+
+			double *x = new double[graphs[k].num_nodes];
+			double *y = new double[graphs[k].num_nodes];
+			int index;
+			for (int i = 0; i < graphs[k].num_nodes; i++)
+				fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+			// now read the length of the shortest path
+			fscanf(f, "%lf", &graphs[k].optimal_length);
+			fclose(f);
+
+			for (int i = 0; i < graphs[k].num_nodes; i++)
+				for (int j = 0; j < graphs[k].num_nodes; j++)
+					graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+			delete[] x;
+			delete[] y;
+		}
+
+		{
+			k++;
+			FILE* f = fopen("data/eil51.tsp", "r");
+			if (!f)
+				return 0;
+
+			fscanf(f, "%d", &graphs[k].num_nodes);
+			// allocate the memory first
+			graphs[k].distance = new double*[graphs[k].num_nodes];
+			for (int i = 0; i < graphs[k].num_nodes; i++)
+				graphs[k].distance[i] = new double[graphs[k].num_nodes];
+
+			double *x = new double[graphs[k].num_nodes];
+			double *y = new double[graphs[k].num_nodes];
+			int index;
+			for (int i = 0; i < graphs[k].num_nodes; i++)
+				fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+			// now read the length of the shortest path
+			fscanf(f, "%lf", &graphs[k].optimal_length);
+			fclose(f);
+
+			for (int i = 0; i < graphs[k].num_nodes; i++)
+				for (int j = 0; j < graphs[k].num_nodes; j++)
+					graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+			delete[] x;
+			delete[] y;
+		}
+
+
+				{
+					k++;
+					FILE* f = fopen("data/kroA100.tsp", "r");
+					if (!f)
+						return 0;
+
+					fscanf(f, "%d", &graphs[k].num_nodes);
+					// allocate the memory first
+					graphs[k].distance = new double*[graphs[k].num_nodes];
+					for (int i = 0; i < graphs[k].num_nodes; i++)
+						graphs[k].distance[i] = new double[graphs[k].num_nodes];
+
+					double *x = new double[graphs[k].num_nodes];
+					double *y = new double[graphs[k].num_nodes];
+					int index;
+					for (int i = 0; i < graphs[k].num_nodes; i++)
+						fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+					// now read the length of the shortest path
+					fscanf(f, "%lf", &graphs[k].optimal_length);
+					fclose(f);
+
+					for (int i = 0; i < graphs[k].num_nodes; i++)
+						for (int j = 0; j < graphs[k].num_nodes; j++)
+							graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+					delete[] x;
+					delete[] y;
+				}
+
+
+						{
+							k++;
+							FILE* f = fopen("data/lin105.tsp", "r");
+							if (!f)
+								return 0;
+
+							fscanf(f, "%d", &graphs[k].num_nodes);
+							// allocate the memory first
+							graphs[k].distance = new double*[graphs[k].num_nodes];
+							for (int i = 0; i < graphs[k].num_nodes; i++)
+								graphs[k].distance[i] = new double[graphs[k].num_nodes];
+
+							double *x = new double[graphs[k].num_nodes];
+							double *y = new double[graphs[k].num_nodes];
+							int index;
+							for (int i = 0; i < graphs[k].num_nodes; i++)
+								fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
+							// now read the length of the shortest path
+							fscanf(f, "%lf", &graphs[k].optimal_length);
+							fclose(f);
+
+							for (int i = 0; i < graphs[k].num_nodes; i++)
+								for (int j = 0; j < graphs[k].num_nodes; j++)
+									graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
+
+							delete[] x;
+							delete[] y;
+						}
 
 		return 1;
 }
@@ -1179,8 +1296,7 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 
 	best_validation_individual->to_string_simplified(expression, params.num_constants);
 
-	sprintf(message, "pid = %d gen = %d best_validation_fitness = %f simplified = %s\n", r_params.current_id, generation,
-		best_validation_fitness, expression);
+	sprintf(message, "pid = %d gen = %d best_validation_fitness = %lf simplified = %s\n", r_params.current_id, generation, best_validation_fitness, expression);
 	int err;
 	/*
 		FILE* f = fopen(r_params.log_file, "a");
@@ -1821,8 +1937,8 @@ int main(int argc, char* argv[])
 	t_graph *training_graphs = NULL;
 	t_graph *validation_graphs = NULL;
 
-	t_params.num_training_graphs = 4;
-	t_params.num_validation_graphs = 5;
+	t_params.num_training_graphs = 8;
+	t_params.num_validation_graphs = 2;
 
 
 #ifndef USE_MPI
