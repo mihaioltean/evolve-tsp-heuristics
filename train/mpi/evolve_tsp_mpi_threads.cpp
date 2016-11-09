@@ -1,6 +1,6 @@
 //---------------------------------------------------------------------------
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com), Virginia Niculescu (vniculescu@cs.ubbcluj.ro)
-//   Version 2016.11.09.0 // year.month.day.build#
+//   Version 2016.11.09.1 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -1544,7 +1544,7 @@ void init_params(t_parameters& params)
 	params.constants_min = -1;
 	params.constants_max = 1;
 	params.num_migrations = 2;
-	params.num_training_graphs = 4;
+	params.num_training_graphs = 8;
 	params.num_validation_graphs = 4;
 }
 
@@ -1947,7 +1947,7 @@ int main(int argc, char* argv[])
 	t_graph *validation_graphs = NULL;
 
 	t_params.num_training_graphs = 8;
-	t_params.num_validation_graphs = 2;
+	t_params.num_validation_graphs = 4;
 
 
 #ifndef USE_MPI
