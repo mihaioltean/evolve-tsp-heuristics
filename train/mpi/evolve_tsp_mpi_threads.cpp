@@ -1,6 +1,6 @@
 //---------------------------------------------------------------------------
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com), Virginia Niculescu (vniculescu@cs.ubbcluj.ro)
-//   Version 2016.11.09.1 // year.month.day.build#
+//   Version 2016.11.24.1 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -1283,7 +1283,7 @@ void interchange(run_parameters& r_params, t_parameters&  params, t_chromosome *
 //---------------------------------------------------------------------------
 //print to log file if USE_MPI
 //---------------------------------------------------------------------------
-int print_to_log_file(t_parameters &params, run_parameters& r_params, int generation, t_chromosome *best_validation_individual, double best_validation_fitness)
+int print_to_log_file(t_parameters &params, run_parameters& r_params, int generation, t_chromosome *best_validation_individual, double best_validation_fitness, double best_training_fitness)
 {
 	/*
 	 * the function return an error code
@@ -1298,7 +1298,7 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 
 	best_validation_individual->to_string_simplified(expression, params.num_constants);
 
-	sprintf(message, "pid = %d gen = %d best_validation_fitness = %lf simplified = %s\n", r_params.current_id, generation, best_validation_fitness, expression);
+	sprintf(message, "pid = %d gen = %d best_training_fitness = %lf best_validation_fitness = %lf simplified = %s\n", r_params.current_id, generation, best_training_fitness, best_validation_fitness, expression);
 	int err;
 	/*
 		FILE* f = fopen(r_params.log_file, "a");
@@ -1328,7 +1328,8 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 	//int err=MPI_File_seek(*file, MPI_SEEK_END,0);
 
 	if (err) {
-		printf("try to open the file %s in proc %d with error %d\n", r_params.log_file, r_params.current_id, err);
+		printf("Tried to open the file %s in proc %d: got error %d\n", r_params.log_file, r_params.current_id, err);
+		printf("%s", message);
 		//MPI_Abort(MPI_COMM_WORLD, err);
 	}
 	else {
@@ -1339,8 +1340,9 @@ int print_to_log_file(t_parameters &params, run_parameters& r_params, int genera
 		if (err)
 			printf("write on file %s with error= %d in proc %d message %s of length %d\n", r_params.log_file, err,
 			r_params.current_id, message, (int)strlen(message));
+		MPI_File_close(&file);
 	}
-	MPI_File_close(&file);
+	
 
 	return  err;
 #else
@@ -1395,7 +1397,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, t_graph 
 		double *partial_values_array = new double[params.code_length];
 
 		sub_populations[best_individual_subpop_index][0].simplify(params.code_length);
-		double current_validation_fitness = compute_fitness(sub_populations[best_individual_subpop_index][0], validation_graphs, params.num_training_graphs, num_variables, vars_values, partial_values_array);
+		double current_validation_fitness = compute_fitness(sub_populations[best_individual_subpop_index][0], validation_graphs, params.num_validation_graphs, num_variables, vars_values, partial_values_array);
 
 		if (!generation || (generation && current_validation_fitness < best_validation_fitness)) {
 			best_validation_fitness = current_validation_fitness;
@@ -1410,7 +1412,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, t_graph 
 		fclose(f);
 #else
 		if (generation % 10 == 0) {
-			int err = print_to_log_file(params, r_params, generation, &best_program_on_validation, best_validation_fitness);
+			int err = print_to_log_file(params, r_params, generation, &best_program_on_validation, best_validation_fitness, sub_populations[best_individual_subpop_index][0].fitness);
 			if (err) printf("error while writing to log file inside process %d \n", r_params.current_id);
 		}
 #endif
@@ -1456,8 +1458,6 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, t_graph 
 	delete_chromosome(best_program_on_validation);
 
 }
-
-
 //---------------------------------------------------------------------------
 //print to log file if USE_MPI the no of elements thathas been received from previous process
 //---------------------------------------------------------------------------
@@ -1502,13 +1502,15 @@ void print_num_migrations(run_parameters &r_params)
 		if (err)
 			//printf(" tried in proc %d print to file %s the message %s with status(no of char written) = %lu\n", r_params.current_id, r_params.log_file, message, status._ucount);
 			printf(" tried in proc %d print to file %s the message %s \n", r_params.current_id, r_params.log_file, message);
+
+		MPI_File_close(&file);
 	}
 	//	MPI_Barrier(MPI_COMM_WORLD);
 	//	MPI_File_sync(file);
 
 	//printf("write on file in proc %d message %s of length %d error %d\n",r_params.current_id ,message, (int)strlen(message),err);
 
-	MPI_File_close(&file);
+	
 	//MPI_Barrier(MPI_COMM_WORLD);
 	//MPI_File_sync(file);
 
