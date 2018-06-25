@@ -1,7 +1,7 @@
 ﻿//---------------------------------------------------------------------------
-//   Multi Expression Programming Software - with multiple subpopulations and threads
-//   Copyright Mihai Oltean  (mihai.oltean@gmail.com)
-//   Version 2016.06.23.0 // year.month.day.build#
+//   Evolve heuristics with Genetic Programming
+//   (c) Mihai Oltean  (mihai.oltean@gmail.com) and Virginia Niculescu (vniculescu@cs.ubbcluj.ro)
+//   Version 2018.06.25.0 // year.month.day.build#
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -9,41 +9,20 @@
 
 //   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //---------------------------------------------------------------------------
-//   Each subpopulation is evolved in a separate thread
-//   The subpopulations have a circular structure
-//   At the end of each generation we move, from each subpopulation, some individuals in the next one
 
-//   I recommend to check the basic variant first (without subpopulations and threads)
-
-//   Compiled with Microsoft Visual C++ 2013
-//   Also compiled with XCode 5.
+//   Compiled with Microsoft Visual C++ 2017
+//   Also compiled with XCode 8.
 //   Requires C++11 or newer (for thread support)
-
-//   how to use it: 
-//   just create a console project and copy-paste the content this file in the main file of the project
-
-//   More info at:  http://www.mep.cs.ubbcluj.ro
-
-//   Please reports any sugestions and/or bugs to:     mihai.oltean@gmail.com
-
-//   Training data file must have the following format (see building1.txt and cancer1.txt):
-//   building1 and cancer1 data are taken from PROBEN1
-
-//   x11 x12 ... x1n f1
-//   x21 x22 ....x2n f2
-//   .............
-//   xm1 xm2 ... xmn fm
-
-//   where m is the number of training data
-//   and n is the number of variables.
 
 //--------------------------------------------------------------------
 
 //#define USE_THREADS
 
-#define SIMPLIFY
+#define SIMPLIFY_CODE
 
-#define USE_MPI
+//#define USE_MPI
+
+#define TRAIN_ON_RANDOM_GRAPHS
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -157,7 +136,7 @@ struct t_chromosome{
 	//---------------------------------------------------------------------------
 	void simplify(int code_length)
 	{
-#ifdef SIMPLIFY
+#ifdef SIMPLIFY_CODE
 		bool *marked = new bool[code_length];
 		for (int i = 0; i < code_length; marked[i++] = false);
 		mark(code_length - 1, marked);
@@ -353,6 +332,24 @@ void delete_partial_expression_values(double ***&expression_value, int code_leng
 			delete[] expression_value[t];
 		}
 		delete[] expression_value;
+	}
+}
+//---------------------------------------------------------------------------
+void generate_random_graphs(int num_training_graphs, int max_num_nodes, t_graph *&training_graphs)
+{
+	training_graphs = new t_graph[num_training_graphs];
+
+	for (int k = 0; k < num_training_graphs; k++) {
+		training_graphs[k].num_nodes = 4 + rand() % (max_num_nodes - 3);
+		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
+		for (int i = 0; i < training_graphs[k].num_nodes; i++)
+			for (int j = 0; j < i; j++) {
+				training_graphs[k].distance[i][j] = rand() / (double)RAND_MAX;
+				training_graphs[k].distance[j][i] = training_graphs[k].distance[i][j];
+			}
+		training_graphs[k].optimal_length = 0; // do not know it right now
 	}
 }
 //---------------------------------------------------------------------------
@@ -790,7 +787,13 @@ double compute_fitness(t_chromosome &individual, t_graph *training_graphs, int n
 		}
 		// connect the last with the first in the path
 		path_length += training_graphs[k].distance[tsp_path[count_nodes - 1]][tsp_path[0]];
+
+#ifndef TRAIN_ON_RANDOM_GRAPHS
 		local_fitness += (path_length - training_graphs[k].optimal_length) / training_graphs[k].optimal_length * 100;
+#else
+		local_fitness += path_length / training_graphs[k].average_distance;
+#endif
+
 		// keep it in percent from the optimal solution, otherwise we have scalling problems
 
 		delete[] tsp_path;
@@ -1059,8 +1062,8 @@ void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
 int main(int argc, char* argv[])
 {
 	t_parameters params;
-	params.num_sub_populations = 2;
-	params.sub_population_size = 30;						    // the number of individuals in population  (must be an even number!)
+	params.num_sub_populations = 4;
+	params.sub_population_size = 500;						    // the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
 	params.num_generations = 1000;					// the number of generations
 	params.mutation_probability = 0.01;              // mutation probability
@@ -1081,12 +1084,19 @@ int main(int argc, char* argv[])
 	t_graph *graphs = NULL;
 	int num_graphs = 0;
 
+#ifndef TRAIN_ON_RANDOM_GRAPHS
 	if (!read_training_data(graphs, num_graphs)) {
 		printf("Cannot find input file(s)! Please specify the full path!\n");
 		printf("Press Enter ...");
 		getchar();
 		return 1;
 	}
+#else
+	num_graphs = 30;
+	int max_num_nodes = 50;
+
+	generate_random_graphs(num_graphs, max_num_nodes, graphs);
+#endif
 
 	compute_global_variables(graphs, num_graphs);
 
@@ -1106,7 +1116,7 @@ int main(int argc, char* argv[])
 
 
 	printf("Evolving... proc_id = %d\n", current_proc_id);
-	start_steady_state(params, graphs, 2, graphs + 2, 2, num_variables, num_procs, current_proc_id);
+	start_steady_state(params, graphs, num_graphs / 2, graphs + num_graphs / 2, num_graphs / 2, num_variables, num_procs, current_proc_id);
 
 	delete_training_graphs(graphs, num_graphs);
 
