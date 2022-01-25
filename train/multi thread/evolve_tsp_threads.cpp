@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 //   Multi Expression Programming Software - with multiple subpopulations and threads
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com)
-//   Version 2016.02.03
+//   Version 2022.01.25.0
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -15,14 +15,13 @@
 
 //   I recommend to check the basic variant first (without subpopulations and threads)
 
-//   Compiled with Microsoft Visual C++ 2013
-//   Also compiled with XCode 5.
+//   Compiled with Microsoft Visual C++ 2019
 //   Requires C++11 or newer (for thread support)
 
 //   how to use it: 
 //   just create a console project and copy-paste the content this file in the main file of the project
 
-//   More info at:  http://www.mep.cs.ubbcluj.ro
+//   More info at:  https://www.mepx.org
 
 //   Please reports any sugestions and/or bugs to:     mihai.oltean@gmail.com
 
@@ -48,14 +47,20 @@
 //#include <vld.h> // for detecting memory leaks in VC++
 
 
-#define num_operators 6
+#define NUM_OPERATORS 5
+
+#define OP_ADD -1
+#define OP_SUB -2
+#define OP_MUL -3
+#define OP_MIN -4
+#define OP_MAX -5
 
 // +   -1
 // -   -2
 // *   -3
 // /   -4
 
-char operators_string[num_operators][10] = { "+", "-", "*", "min", "max" };
+const char operators_string[NUM_OPERATORS][10] = { "+", "-", "*", "min", "max" };
 
 // variables
 // some indecses in the variables array
@@ -71,6 +76,8 @@ char operators_string[num_operators][10] = { "+", "-", "*", "min", "max" };
 #define num_visited_nodes 8          // number of visisted nodes so far
 #define num_total_nodes 9            // total number of nodes of that graph
 
+#define num_variables 10
+
 //---------------------------------------------------------------------------
 struct t_graph{
 	int num_nodes;			// number of nodes
@@ -78,9 +85,6 @@ struct t_graph{
 	double min_distance, max_distance, average_distance;
 	double optimal_length;  // known optimal solution
 };
-
-
-
 //---------------------------------------------------------------------------
 struct t_code3{
 	int op;				// either a variable, operator or constant; 
@@ -90,15 +94,15 @@ struct t_code3{
 	int adr1, adr2;    // pointers to arguments
 };
 //---------------------------------------------------------------------------
-struct t_chromosome{
+struct t_mep_chromosome{
 	t_code3 *prg;        // the program - a string of genes
 	double *constants; // an array of constants
 
 	double fitness;        // the fitness (or the error)
 };
 //---------------------------------------------------------------------------
-struct t_parameters{
-	int code_length;             // number of instructions in a t_chromosome
+struct t_mep_parameters{
+	int code_length;             // number of instructions in a t_mep_chromosome
 	int num_generations;
 	int num_sub_populations;       // number of subpopulations
 	int sub_population_size;                // subpopulation size
@@ -112,7 +116,7 @@ struct t_parameters{
 	// num_thread should no exceed the number of processor cores.
 };
 //---------------------------------------------------------------------------
-void allocate_chromosome(t_chromosome &c, t_parameters &params)
+void allocate_chromosome(t_mep_chromosome &c, const t_mep_parameters &params)
 {
 	c.prg = new t_code3[params.code_length];
 	if (params.num_constants)
@@ -121,7 +125,7 @@ void allocate_chromosome(t_chromosome &c, t_parameters &params)
 		c.constants = NULL;
 }
 //---------------------------------------------------------------------------
-void delete_chromosome(t_chromosome &c)
+void delete_chromosome(t_mep_chromosome &c)
 {
 	if (c.prg) {
 		delete[] c.prg;
@@ -133,7 +137,7 @@ void delete_chromosome(t_chromosome &c)
 	}
 }
 //---------------------------------------------------------------------------
-void allocate_training_data(double **&data, double *&target, int num_training_data, int num_variables)
+void allocate_training_data(double **&data, double *&target, int num_training_data)
 {
 	target = new double[num_training_data];
 	data = new double*[num_training_data];
@@ -165,7 +169,7 @@ void delete_partial_expression_values(double ***&expression_value, int code_leng
 	}
 }
 //---------------------------------------------------------------------------
-bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
+bool read_training_data(const char* path, t_graph *&training_graphs, int &num_training_graphs)
 {
 	// training is done on 4 graphs
 	num_training_graphs = 4;
@@ -173,8 +177,13 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 
 	int k = 0; // count the graphs
 	{
-		FILE* f = fopen("data\\bayg29.tsp", "r");
-		if (!f)
+		char* file_name = new char[strlen(path) + 100];
+		strcpy(file_name, path);
+		strcat(file_name, "bayg29.tsp");
+
+		FILE* f = fopen(file_name, "r");
+		delete[] file_name;
+		if (!f) 
 			return false;
 
 		fscanf(f, "%d", &training_graphs[k].num_nodes);
@@ -196,10 +205,17 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 		fscanf(f, "%lf", &training_graphs[k].optimal_length);
 
 		fclose(f);
+		
 	}
 	{
 		k++;
-		FILE* f = fopen("data\\a280.tsp", "r");
+		char* file_name = new char[strlen(path) + 100];
+		strcpy(file_name, path);
+		strcat(file_name, "a280.tsp");
+
+		FILE* f = fopen(file_name, "r");
+		delete[] file_name;
+
 		if (!f)
 			return false;
 
@@ -227,7 +243,13 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 	}
 	{
 		k++;
-		FILE* f = fopen("data\\berlin52.tsp", "r");
+		char* file_name = new char[strlen(path) + 100];
+		strcpy(file_name, path);
+		strcat(file_name, "berlin52.tsp");
+
+		FILE* f = fopen(file_name, "r");
+		delete[] file_name;
+
 		if (!f)
 			return false;
 
@@ -255,7 +277,13 @@ bool read_training_data(t_graph *&training_graphs, int &num_training_graphs)
 	}
 	{
 		k++;
-		FILE* f = fopen("data\\bier127.tsp", "r");
+		char* file_name = new char[strlen(path) + 100];
+		strcpy(file_name, path);
+		strcat(file_name, "bier127.tsp");
+
+		FILE* f = fopen(file_name, "r");
+		delete[] file_name;
+
 		if (!f)
 			return false;
 
@@ -294,7 +322,7 @@ void delete_training_graphs(t_graph *&training_graphs, int num_training_graphs)
 	delete[] training_graphs;
 }
 //---------------------------------------------------------------------------
-void copy_individual(t_chromosome& dest, const t_chromosome& source, t_parameters &params)
+void copy_individual(t_mep_chromosome& dest, const t_mep_chromosome& source, const t_mep_parameters &params)
 {
 	for (int i = 0; i < params.code_length; i++)
 		dest.prg[i] = source.prg[i];
@@ -303,7 +331,7 @@ void copy_individual(t_chromosome& dest, const t_chromosome& source, t_parameter
 	dest.fitness = source.fitness;
 }
 //---------------------------------------------------------------------------
-void generate_random_chromosome(t_chromosome &a, t_parameters &params, int num_variables) // randomly initializes the individuals
+void generate_random_chromosome(t_mep_chromosome &a, const t_mep_parameters &params) // randomly initializes the individuals
 {
 	// generate constants first
 	for (int c = 0; c < params.num_constants; c++)
@@ -323,7 +351,7 @@ void generate_random_chromosome(t_chromosome &a, t_parameters &params, int num_v
 		double p = rand() / (double)RAND_MAX;
 
 		if (p <= params.operators_probability)
-			a.prg[i].op = -rand() % num_operators - 1;        // an operator
+			a.prg[i].op = -rand() % NUM_OPERATORS - 1;        // an operator
 		else
 			if (p <= params.operators_probability + params.variables_probability)
 				a.prg[i].op = rand() % num_variables;     // a variable
@@ -335,7 +363,7 @@ void generate_random_chromosome(t_chromosome &a, t_parameters &params, int num_v
 	}
 }
 //---------------------------------------------------------------------------
-void mutation(t_chromosome &a_chromosome, t_parameters params, int num_variables) // mutate the individual
+void mutation(t_mep_chromosome &a_chromosome, const t_mep_parameters &params) // mutate the individual
 {
 	// mutate each symbol with the given probability
 	// first gene must be a variable or constant
@@ -357,7 +385,7 @@ void mutation(t_chromosome &a_chromosome, t_parameters params, int num_variables
 			p = rand() / (double)RAND_MAX;
 
 			if (p <= params.operators_probability)
-				a_chromosome.prg[i].op = -rand() % num_operators - 1;
+				a_chromosome.prg[i].op = -rand() % NUM_OPERATORS - 1;
 			else
 				if (p <= params.operators_probability + params.variables_probability)
 					a_chromosome.prg[i].op = rand() % num_variables;
@@ -382,7 +410,9 @@ void mutation(t_chromosome &a_chromosome, t_parameters params, int num_variables
 
 }
 //---------------------------------------------------------------------------
-void one_cut_point_crossover(const t_chromosome &parent1, const t_chromosome &parent2, t_parameters &params, t_chromosome &offspring1, t_chromosome &offspring2)
+void one_cut_point_crossover(const t_mep_chromosome &parent1, const t_mep_chromosome &parent2, 
+	const t_mep_parameters &params, 
+	t_mep_chromosome &offspring1, t_mep_chromosome &offspring2)
 {
 	int cutting_pct = rand() % params.code_length;
 	for (int i = 0; i < cutting_pct; i++) {
@@ -407,7 +437,9 @@ void one_cut_point_crossover(const t_chromosome &parent1, const t_chromosome &pa
 	}
 }
 //---------------------------------------------------------------------------
-void uniform_crossover(const t_chromosome &parent1, const t_chromosome &parent2, t_parameters &params, t_chromosome &offspring1, t_chromosome &offspring2)
+void uniform_crossover(const t_mep_chromosome &parent1, const t_mep_chromosome &parent2, 
+	const t_mep_parameters &params, 
+	t_mep_chromosome &offspring1, t_mep_chromosome &offspring2)
 {
 	for (int i = 0; i < params.code_length; i++)
 		if (rand() % 2) {
@@ -433,16 +465,16 @@ void uniform_crossover(const t_chromosome &parent1, const t_chromosome &parent2,
 //---------------------------------------------------------------------------
 int sort_function(const void *a, const void *b)
 {// comparator for quick sort
-	if (((t_chromosome *)a)->fitness > ((t_chromosome *)b)->fitness)
+	if (((t_mep_chromosome *)a)->fitness > ((t_mep_chromosome *)b)->fitness)
 		return 1;
 	else
-		if (((t_chromosome *)a)->fitness < ((t_chromosome *)b)->fitness)
+		if (((t_mep_chromosome *)a)->fitness < ((t_mep_chromosome *)b)->fitness)
 			return -1;
 		else
 			return 0;
 }
 //---------------------------------------------------------------------------
-int tournament_selection(t_chromosome *a_sub_pop, int sub_pop_size, int tournament_size)     // Size is the size of the tournament
+int tournament_selection(const t_mep_chromosome *a_sub_pop, int sub_pop_size, int tournament_size)     // Size is the size of the tournament
 {
 	int r, p;
 	p = rand() % sub_pop_size;
@@ -453,38 +485,38 @@ int tournament_selection(t_chromosome *a_sub_pop, int sub_pop_size, int tourname
 	return p;
 }
 //---------------------------------------------------------------------------
-double evaluate(t_chromosome &a_t_chromosome, int code_length, int num_variables, double *vars_values, double *partial_values_array)
+double evaluate(const t_mep_chromosome &a_t_mep_chromosome, int code_length, double *vars_values, double *partial_values_array)
 {
 	for (int i = 0; i < code_length; i++)
-		switch (a_t_chromosome.prg[i].op) {
-		case -1:// +
-			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] + partial_values_array[a_t_chromosome.prg[i].adr2];
+		switch (a_t_mep_chromosome.prg[i].op) {
+		case OP_ADD:// +
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].adr1] + partial_values_array[a_t_mep_chromosome.prg[i].adr2];
 			break;
-		case -2:// -
-			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] - partial_values_array[a_t_chromosome.prg[i].adr2];
+		case OP_SUB:// -
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].adr1] - partial_values_array[a_t_mep_chromosome.prg[i].adr2];
 			break;
-		case -3:// *
-			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] * partial_values_array[a_t_chromosome.prg[i].adr2];
+		case OP_MUL:// *
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].adr1] * partial_values_array[a_t_mep_chromosome.prg[i].adr2];
 			break;
-		case -4:// max
-			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] > partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
+		case OP_MAX:// max
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].adr1] > partial_values_array[a_t_mep_chromosome.prg[i].adr2] ? partial_values_array[a_t_mep_chromosome.prg[i].adr1] : partial_values_array[a_t_mep_chromosome.prg[i].adr2];
 			break;
-		case -5:// min
-			partial_values_array[i] = partial_values_array[a_t_chromosome.prg[i].adr1] < partial_values_array[a_t_chromosome.prg[i].adr2] ? partial_values_array[a_t_chromosome.prg[i].adr1] : partial_values_array[a_t_chromosome.prg[i].adr2];
+		case OP_MIN:// min
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].adr1] < partial_values_array[a_t_mep_chromosome.prg[i].adr2] ? partial_values_array[a_t_mep_chromosome.prg[i].adr1] : partial_values_array[a_t_mep_chromosome.prg[i].adr2];
 			break;
 		default:
-			if (a_t_chromosome.prg[i].op < num_variables)
-				partial_values_array[i] = vars_values[a_t_chromosome.prg[i].op];
+			if (a_t_mep_chromosome.prg[i].op < num_variables)
+				partial_values_array[i] = vars_values[a_t_mep_chromosome.prg[i].op];
 			else
-				partial_values_array[i] = a_t_chromosome.constants[a_t_chromosome.prg[i].op - num_variables];
+				partial_values_array[i] = a_t_mep_chromosome.constants[a_t_mep_chromosome.prg[i].op - num_variables];
 	}
 
 	return partial_values_array[code_length - 1]; // last gene is the one providing the output
 }
 //---------------------------------------------------------------------------
-void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
+void print_mep_chromosome(const t_mep_chromosome& a, const t_mep_parameters &params)
 {
-	printf("The t_chromosome is:\n");
+	printf("The t_mep_chromosome is:\n");
 
 	for (int i = 0; i < params.num_constants; i++)
 		printf("constants[%d] = %lf\n", i, a.constants[i]);
@@ -501,7 +533,7 @@ void print_chromosome(t_chromosome& a, t_parameters &params, int num_variables)
 	printf("Fitness = %lf\n", a.fitness);
 }
 //---------------------------------------------------------------------------
-void compute_local_variables(t_graph &graph, int num_visited, int current_node, int *node_visited, double *vars_values)
+void compute_local_variables(const t_graph &graph, int num_visited, int current_node, const int *node_visited, double *vars_values)
 {
 	vars_values[distance_to_nearest_node] = 1E307; // min distance to unvisited
 	vars_values[distance_to_fartest_node] = 0;     // max_distance to unvisited
@@ -520,7 +552,9 @@ void compute_local_variables(t_graph &graph, int num_visited, int current_node, 
 	vars_values[average_distance_to_unvisited] /= (double)(graph.num_nodes - num_visited);
 }
 //--------------------------------------------------------------------
-void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs, int num_training_graphs, int num_variables, double * vars_values, double *partial_values_array)
+void fitness(t_mep_chromosome &individual, int code_length, 
+		const t_graph *training_graphs, int num_training_graphs, 
+		double * vars_values, double *partial_values_array)
 {
 	// fitness is the sum of errors over all training graphs.
 	// error is the distance from the optimum
@@ -566,7 +600,7 @@ void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs
 				// consider each unvisited node
 				if (!node_visited[nod]) {// not visited yet
 					vars_values[distance_to_next_node] = training_graphs[k].distance[tsp_path[count_nodes - 1]][nod];
-					double eval = evaluate(individual, code_length, num_variables, vars_values, partial_values_array);
+					double eval = evaluate(individual, code_length, vars_values, partial_values_array);
 					if (eval < min_eval) {
 						best_node = nod; // keep the one with minimal evaluation
 						min_eval = eval;
@@ -591,7 +625,10 @@ void fitness(t_chromosome &individual, int code_length, t_graph *training_graphs
 }
 //-----------------------------------------------------------------
 
-void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_chromosome ** sub_populations, int generation_index, t_parameters &params, t_graph *training_graphs, int num_training_graphs, int num_variables, double* vars_values)
+void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, 
+		t_mep_chromosome ** sub_populations, int generation_index, 
+	const t_mep_parameters &params, const t_graph *training_graphs, int num_training_graphs, 
+	double* vars_values)
 {
 	int pop_index = 0;
 	while (*current_subpop_index < params.num_sub_populations) {// still more subpopulations to evolve?
@@ -603,9 +640,9 @@ void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_ch
 
 		// pop_index is the index of the subpopulation evolved by the current thread
 
-		t_chromosome *a_sub_population = sub_populations[pop_index];
+		t_mep_chromosome *a_sub_population = sub_populations[pop_index];
 
-		t_chromosome offspring1, offspring2;
+		t_mep_chromosome offspring1, offspring2;
 		allocate_chromosome(offspring1, params);
 		allocate_chromosome(offspring2, params);
 
@@ -613,9 +650,9 @@ void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_ch
 
 		if (generation_index == 0) {
 			for (int i = 0; i < params.sub_population_size; i++) {
-				generate_random_chromosome(a_sub_population[i], params, num_variables);
+				generate_random_chromosome(a_sub_population[i], params);
 				
-				fitness(a_sub_population[i], params.code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+				fitness(a_sub_population[i], params.code_length, training_graphs, num_training_graphs, vars_values, partial_values_array);
 
 			}
 			// sort ascendingly by fitness inside this population
@@ -637,12 +674,12 @@ void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_ch
 					copy_individual(offspring2, a_sub_population[r2], params);
 				}
 				// mutate the result and compute fitness
-				mutation(offspring1, params, num_variables);
-				fitness(offspring1, params.code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+				mutation(offspring1, params);
+				fitness(offspring1, params.code_length, training_graphs, num_training_graphs, vars_values, partial_values_array);
 
 				// mutate the other offspring too
-				mutation(offspring2, params, num_variables);
-				fitness(offspring2, params.code_length, training_graphs, num_training_graphs, num_variables, vars_values, partial_values_array);
+				mutation(offspring2, params);
+				fitness(offspring2, params.code_length, training_graphs, num_training_graphs, vars_values, partial_values_array);
 
 				// replace the worst in the population
 				if (offspring1.fitness < a_sub_population[params.sub_population_size - 1].fitness) {
@@ -660,16 +697,17 @@ void evolve_one_subpopulation(int *current_subpop_index, std::mutex* mutex, t_ch
 	}
 }
 //---------------------------------------------------------------------------
-void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_training_graphs, int num_variables)
+void start_steady_state(const t_mep_parameters &params, 
+	const t_graph *training_graphs, int num_training_graphs)
 {
 	// a steady state model - 
 	// Newly created inviduals replace the worst ones (if the offspring are better) in the same (sub) population.
 
 	// allocate memory for all sub populations
-	t_chromosome **sub_populations; // an array of sub populations
-	sub_populations = new t_chromosome*[params.num_sub_populations];
+	t_mep_chromosome **sub_populations; // an array of sub populations
+	sub_populations = new t_mep_chromosome*[params.num_sub_populations];
 	for (int p = 0; p < params.num_sub_populations; p++) {
-		sub_populations[p] = new t_chromosome[params.sub_population_size];
+		sub_populations[p] = new t_mep_chromosome[params.sub_population_size];
 		for (int i = 0; i < params.sub_population_size; i++)
 			allocate_chromosome(sub_populations[p][i], params); // allocate each individual in the subpopulation 
 	}
@@ -688,7 +726,7 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 	// initial population (generation 0)
 	int current_subpop_index = 0;
 	for (int t = 0; t < params.num_threads; t++)
-		mep_threads[t] = new std::thread(evolve_one_subpopulation, &current_subpop_index, &mutex, sub_populations, 0, params, training_graphs, num_training_graphs, num_variables, vars_values[t]);
+		mep_threads[t] = new std::thread(evolve_one_subpopulation, &current_subpop_index, &mutex, sub_populations, 0, params, training_graphs, num_training_graphs, vars_values[t]);
 
 
 	for (int t = 0; t < params.num_threads; t++) {
@@ -702,14 +740,22 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 		if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
 			best_individual_subpop_index = p;
 
-	printf("generation %d, best fitness = %lf\n", 0, sub_populations[best_individual_subpop_index][0].fitness);
+	// compute average
+	double average_fitness = 0;
+	for (int p = 0; p < params.num_sub_populations; p++)
+		for (int i = 0; i < params.sub_population_size; i++)
+			average_fitness += sub_populations[p][i].fitness;
+
+	average_fitness /= (params.num_sub_populations * params.sub_population_size);
+
+	printf("generation %d, best fitness = %lf; average fitness = %lf\n", 0, sub_populations[best_individual_subpop_index][0].fitness, average_fitness);
 	
 	// evolve for a fixed number of generations
 	for (int generation = 1; generation < params.num_generations; generation++) { // for each generation
 
 		current_subpop_index = 0;
 		for (int t = 0; t < params.num_threads; t++)
-			mep_threads[t] = new std::thread(evolve_one_subpopulation, &current_subpop_index, &mutex, sub_populations, generation, params, training_graphs, num_training_graphs, num_variables, vars_values[t]);
+			mep_threads[t] = new std::thread(evolve_one_subpopulation, &current_subpop_index, &mutex, sub_populations, generation, params, training_graphs, num_training_graphs, vars_values[t]);
 
 		for (int t = 0; t < params.num_threads; t++) {
 			mep_threads[t]->join();
@@ -721,7 +767,15 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 		for (int p = 1; p < params.num_sub_populations; p++)
 			if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
 				best_individual_subpop_index = p;
-		printf("generation %d, best fitness = %lf\n", generation, sub_populations[best_individual_subpop_index][0].fitness);
+		// compute average
+		double average_fitness = 0;
+		for (int p = 0; p < params.num_sub_populations; p++)
+			for (int i = 0; i < params.sub_population_size; i++)
+				average_fitness += sub_populations[p][i].fitness;
+
+		average_fitness /= (params.num_sub_populations * params.sub_population_size);
+
+		printf("generation %d, best fitness = %lf; average fitness = %lf\n", generation, sub_populations[best_individual_subpop_index][0].fitness, average_fitness);
 
 		// now copy one individual from one population to the next one.
 		// the copied invidual will replace the worst in the next one (if is better)
@@ -739,9 +793,9 @@ void start_steady_state(t_parameters &params, t_graph *training_graphs, int num_
 
 	delete[] mep_threads;
 
-		// print best t_chromosome
+		// print best t_mep_chromosome
 
-	print_chromosome(sub_populations[best_individual_subpop_index][0], params, num_variables);
+	print_mep_chromosome(sub_populations[best_individual_subpop_index][0], params);
 	// free memory
 
 	for (int p = 0; p < params.num_sub_populations; p++) {
@@ -779,29 +833,31 @@ void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
 
 int main(void)
 {
-	t_parameters params;
-	params.num_sub_populations = 4;
-	params.sub_population_size = 50;						    // the number of individuals in population  (must be an even number!)
+	t_mep_parameters params;
+	params.num_sub_populations = 30;
+	params.sub_population_size = 100;			// the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 100;					// the number of generations
-	params.mutation_probability = 0.1;              // mutation probability
-	params.crossover_probability = 0.9;             // crossover probability
+	params.num_generations = 100;				// the number of generations
+	params.mutation_probability = 0.01;          // mutation probability
+	params.crossover_probability = 0.9;         // crossover probability
 
 	params.variables_probability = 0.4;
 	params.operators_probability = 0.5;
 	params.constants_probability = 1 - params.variables_probability - params.operators_probability; // sum of variables_prob + operators_prob + constants_prob MUST BE 1 !
 
-	params.num_constants = 3; // use 3 constants from -1 ... +1 interval
+	params.num_constants = 10; // use 5 constants from -1 ... +1 interval
 	params.constants_min = -1;
 	params.constants_max = 1;
 
-	params.num_threads = 4;
+	params.num_threads = 30;
 
 	t_graph *training_graphs = NULL;
 	int num_training_graphs = 0;
 
-	if (!read_training_data(training_graphs, num_training_graphs)) {
-		printf("Cannot find input file(s)! Please specify the full path!");
+	const char* path_str = "c:/Mihai/work/evolve-tsp-heuristics/data/";
+
+	if (!read_training_data(path_str, training_graphs, num_training_graphs)) {
+		printf("Cannot find input file(s) in path %s! Please specify the correct path!", path_str);
 		getchar();
 		return 1;
 	}
@@ -809,13 +865,10 @@ int main(void)
 	compute_global_variables(training_graphs, num_training_graphs);
 
 
-	int num_variables = 10;
-
-
-	srand(1); // if you want to make a 
+	srand(0); 
 
 	printf("evolving...\n");
-	start_steady_state(params, training_graphs, num_training_graphs, num_variables);
+	start_steady_state(params, training_graphs, num_training_graphs);
 
 	delete_training_graphs(training_graphs, num_training_graphs);
 
