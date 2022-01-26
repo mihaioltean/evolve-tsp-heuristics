@@ -44,23 +44,23 @@
 #include <thread>
 #include <mutex>
 
-//#include <vld.h> // for detecting memory leaks in VC++
+#include "graphs.h"
 
-
-#define NUM_OPERATORS 5
+#define NUM_OPERATORS 6
 
 #define OP_ADD -1
 #define OP_SUB -2
 #define OP_MUL -3
 #define OP_MIN -4
 #define OP_MAX -5
+#define OP_IFABCD -6
 
 // +   -1
 // -   -2
 // *   -3
 // /   -4
 
-const char operators_string[NUM_OPERATORS][10] = { "+", "-", "*", "min", "max" };
+const char operators_string[NUM_OPERATORS][10] = { "+", "-", "*", "min", "max", "ifabcd"};
 
 // variables
 // some indecses in the variables array
@@ -79,19 +79,12 @@ const char operators_string[NUM_OPERATORS][10] = { "+", "-", "*", "min", "max" }
 #define num_variables 10
 
 //---------------------------------------------------------------------------
-struct t_graph{
-	int num_nodes;			// number of nodes
-	double **distance;      // distance matrix
-	double min_distance, max_distance, average_distance;
-	double optimal_length;  // known optimal solution
-};
-//---------------------------------------------------------------------------
 struct t_code3{
 	int op;				// either a variable, operator or constant; 
 	// variables are indexed from 0: 0,1,2,...; 
 	// constants are indexed from num_variables
 	// operators are -1, -2, -3...
-	int adr1, adr2;    // pointers to arguments
+	int addr1, addr2, addr3, addr4;    // pointers to arguments
 };
 //---------------------------------------------------------------------------
 struct t_mep_chromosome{
@@ -99,6 +92,7 @@ struct t_mep_chromosome{
 	double *constants; // an array of constants
 
 	double fitness;        // the fitness (or the error)
+	int best_index;
 };
 //---------------------------------------------------------------------------
 struct t_mep_parameters{
@@ -169,159 +163,6 @@ void delete_partial_expression_values(double ***&expression_value, int code_leng
 	}
 }
 //---------------------------------------------------------------------------
-bool read_training_data(const char* path, t_graph *&training_graphs, int &num_training_graphs)
-{
-	// training is done on 4 graphs
-	num_training_graphs = 4;
-	training_graphs = new t_graph[num_training_graphs];
-
-	int k = 0; // count the graphs
-	{
-		char* file_name = new char[strlen(path) + 100];
-		strcpy(file_name, path);
-		strcat(file_name, "bayg29.tsp");
-
-		FILE* f = fopen(file_name, "r");
-		delete[] file_name;
-		if (!f) 
-			return false;
-
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-		// now read the data
-		for (int i = 0; i < training_graphs[k].num_nodes - 1; i++)
-			for (int j = i; j < training_graphs[k].num_nodes; j++)
-				if (i != j) {
-					fscanf(f, "%lf", &training_graphs[k].distance[i][j]);
-					training_graphs[k].distance[j][i] = training_graphs[k].distance[i][j];
-				}
-				else
-					training_graphs[k].distance[i][i] = 0;
-
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-
-		fclose(f);
-		
-	}
-	{
-		k++;
-		char* file_name = new char[strlen(path) + 100];
-		strcpy(file_name, path);
-		strcat(file_name, "a280.tsp");
-
-		FILE* f = fopen(file_name, "r");
-		delete[] file_name;
-
-		if (!f)
-			return false;
-
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
-		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-		fclose(f);
-
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
-
-		delete[] x;
-		delete[] y;
-	}
-	{
-		k++;
-		char* file_name = new char[strlen(path) + 100];
-		strcpy(file_name, path);
-		strcat(file_name, "berlin52.tsp");
-
-		FILE* f = fopen(file_name, "r");
-		delete[] file_name;
-
-		if (!f)
-			return false;
-
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
-		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-		fclose(f);
-
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
-
-		delete[] x;
-		delete[] y;
-	}
-	{
-		k++;
-		char* file_name = new char[strlen(path) + 100];
-		strcpy(file_name, path);
-		strcat(file_name, "bier127.tsp");
-
-		FILE* f = fopen(file_name, "r");
-		delete[] file_name;
-
-		if (!f)
-			return false;
-
-		fscanf(f, "%d", &training_graphs[k].num_nodes);
-		// allocate the memory first
-		training_graphs[k].distance = new double*[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			training_graphs[k].distance[i] = new double[training_graphs[k].num_nodes];
-
-		double *x = new double[training_graphs[k].num_nodes];
-		double *y = new double[training_graphs[k].num_nodes];
-		int index;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			fscanf(f, "%d%lf%lf", &index, &x[i], &y[i]);
-		// now read the length of the shortest path
-		fscanf(f, "%lf", &training_graphs[k].optimal_length);
-		fclose(f);
-
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				training_graphs[k].distance[i][j] = sqrt((x[i] - x[j]) * (x[i] - x[j]) + (y[i] - y[j]) * (y[i] - y[j]));
-
-		delete[] x;
-		delete[] y;
-	}	return true;
-}
-//---------------------------------------------------------------------------
-void delete_training_graphs(t_graph *&training_graphs, int num_training_graphs)
-{
-	if (training_graphs)
-		for (int i = 0; i < num_training_graphs; i++) {
-			for (int j = 0; j < training_graphs[i].num_nodes; j++)
-				delete[] training_graphs[i].distance[j];
-			delete[] training_graphs[i].distance;
-		}
-	delete[] training_graphs;
-}
-//---------------------------------------------------------------------------
 void copy_individual(t_mep_chromosome& dest, const t_mep_chromosome& source, const t_mep_parameters &params)
 {
 	for (int i = 0; i < params.code_length; i++)
@@ -329,6 +170,7 @@ void copy_individual(t_mep_chromosome& dest, const t_mep_chromosome& source, con
 	for (int i = 0; i < params.num_constants; i++)
 		dest.constants[i] = source.constants[i];
 	dest.fitness = source.fitness;
+	dest.best_index = source.best_index;
 }
 //---------------------------------------------------------------------------
 void generate_random_chromosome(t_mep_chromosome &a, const t_mep_parameters &params) // randomly initializes the individuals
@@ -352,14 +194,16 @@ void generate_random_chromosome(t_mep_chromosome &a, const t_mep_parameters &par
 
 		if (p <= params.operators_probability)
 			a.prg[i].op = -rand() % NUM_OPERATORS - 1;        // an operator
-		else
+		else {
 			if (p <= params.operators_probability + params.variables_probability)
 				a.prg[i].op = rand() % num_variables;     // a variable
 			else
 				a.prg[i].op = num_variables + rand() % params.num_constants; // index of a constant
-
-		a.prg[i].adr1 = rand() % i;
-		a.prg[i].adr2 = rand() % i;
+		}
+		a.prg[i].addr1 = rand() % i;
+		a.prg[i].addr2 = rand() % i;
+		a.prg[i].addr3 = rand() % i;
+		a.prg[i].addr4 = rand() % i;
 	}
 }
 //---------------------------------------------------------------------------
@@ -393,13 +237,19 @@ void mutation(t_mep_chromosome &a_chromosome, const t_mep_parameters &params) //
 					a_chromosome.prg[i].op = num_variables + rand() % params.num_constants; // index of a constant
 		}
 
-		p = rand() / (double)RAND_MAX;      // mutate the first address  (adr1)
+		p = rand() / (double)RAND_MAX;      // mutate the first address  (addr1)
 		if (p < params.mutation_probability)
-			a_chromosome.prg[i].adr1 = rand() % i;
+			a_chromosome.prg[i].addr1 = rand() % i;
 
-		p = rand() / (double)RAND_MAX;      // mutate the second address   (adr2)
+		p = rand() / (double)RAND_MAX;      // mutate the second address   (addr2)
 		if (p < params.mutation_probability)
-			a_chromosome.prg[i].adr2 = rand() % i;
+			a_chromosome.prg[i].addr2 = rand() % i;
+		p = rand() / (double)RAND_MAX;      // mutate the second address   (addr3)
+		if (p < params.mutation_probability)
+			a_chromosome.prg[i].addr3 = rand() % i;
+		p = rand() / (double)RAND_MAX;      // mutate the second address   (addr4)
+		if (p < params.mutation_probability)
+			a_chromosome.prg[i].addr4 = rand() % i;
 	}
 	// mutate the constants
 	for (int c = 0; c < params.num_constants; c++) {
@@ -485,24 +335,30 @@ int tournament_selection(const t_mep_chromosome *a_sub_pop, int sub_pop_size, in
 	return p;
 }
 //---------------------------------------------------------------------------
-double evaluate(const t_mep_chromosome &a_t_mep_chromosome, int code_length, double *vars_values, double *partial_values_array)
+double evaluate(const t_mep_chromosome &a_t_mep_chromosome, int code_length, double *vars_values, double *partial_values_array, int output_gene_index)
 {
-	for (int i = 0; i < code_length; i++)
+	for (int i = 0; i <= output_gene_index; i++)
 		switch (a_t_mep_chromosome.prg[i].op) {
 		case OP_ADD:// +
-			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].adr1] + partial_values_array[a_t_mep_chromosome.prg[i].adr2];
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].addr1] + partial_values_array[a_t_mep_chromosome.prg[i].addr2];
 			break;
 		case OP_SUB:// -
-			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].adr1] - partial_values_array[a_t_mep_chromosome.prg[i].adr2];
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].addr1] - partial_values_array[a_t_mep_chromosome.prg[i].addr2];
 			break;
 		case OP_MUL:// *
-			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].adr1] * partial_values_array[a_t_mep_chromosome.prg[i].adr2];
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].addr1] * partial_values_array[a_t_mep_chromosome.prg[i].addr2];
 			break;
 		case OP_MAX:// max
-			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].adr1] > partial_values_array[a_t_mep_chromosome.prg[i].adr2] ? partial_values_array[a_t_mep_chromosome.prg[i].adr1] : partial_values_array[a_t_mep_chromosome.prg[i].adr2];
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].addr1] > partial_values_array[a_t_mep_chromosome.prg[i].addr2] ? partial_values_array[a_t_mep_chromosome.prg[i].addr1] : partial_values_array[a_t_mep_chromosome.prg[i].addr2];
 			break;
 		case OP_MIN:// min
-			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].adr1] < partial_values_array[a_t_mep_chromosome.prg[i].adr2] ? partial_values_array[a_t_mep_chromosome.prg[i].adr1] : partial_values_array[a_t_mep_chromosome.prg[i].adr2];
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].addr1] < partial_values_array[a_t_mep_chromosome.prg[i].addr2] ? partial_values_array[a_t_mep_chromosome.prg[i].addr1] : partial_values_array[a_t_mep_chromosome.prg[i].addr2];
+			break;
+		case OP_IFABCD:// a<b?c:d
+			partial_values_array[i] = partial_values_array[a_t_mep_chromosome.prg[i].addr1] < 
+										partial_values_array[a_t_mep_chromosome.prg[i].addr2] ? 
+										partial_values_array[a_t_mep_chromosome.prg[i].addr3] : 
+										partial_values_array[a_t_mep_chromosome.prg[i].addr4];
 			break;
 		default:
 			if (a_t_mep_chromosome.prg[i].op < num_variables)
@@ -511,7 +367,7 @@ double evaluate(const t_mep_chromosome &a_t_mep_chromosome, int code_length, dou
 				partial_values_array[i] = a_t_mep_chromosome.constants[a_t_mep_chromosome.prg[i].op - num_variables];
 	}
 
-	return partial_values_array[code_length - 1]; // last gene is the one providing the output
+	return partial_values_array[output_gene_index]; 
 }
 //---------------------------------------------------------------------------
 void print_mep_chromosome(const t_mep_chromosome& a, const t_mep_parameters &params)
@@ -522,8 +378,12 @@ void print_mep_chromosome(const t_mep_chromosome& a, const t_mep_parameters &par
 		printf("constants[%d] = %lf\n", i, a.constants[i]);
 
 	for (int i = 0; i < params.code_length; i++)
-		if (a.prg[i].op < 0)
-			printf("%d: %s %d %d\n", i, operators_string[abs(a.prg[i].op) - 1], a.prg[i].adr1, a.prg[i].adr2);
+		if (a.prg[i].op < 0) {
+			if (a.prg[i].op == OP_IFABCD)
+				printf("%d: %s %d %d %d %d\n", i, operators_string[abs(a.prg[i].op) - 1], a.prg[i].addr1, a.prg[i].addr2, a.prg[i].addr3, a.prg[i].addr4);
+			else
+				printf("%d: %s %d %d\n", i, operators_string[abs(a.prg[i].op) - 1], a.prg[i].addr1, a.prg[i].addr2);
+		}
 		else
 			if (a.prg[i].op < num_variables)
 				printf("%d: inputs[%d]\n", i, a.prg[i].op);
@@ -531,6 +391,7 @@ void print_mep_chromosome(const t_mep_chromosome& a, const t_mep_parameters &par
 				printf("%d: constants[%d]\n", i, a.prg[i].op - num_variables);
 
 	printf("Fitness = %lf\n", a.fitness);
+	printf("Best gene = %d\n", a.best_index);
 }
 //---------------------------------------------------------------------------
 void compute_local_variables(const t_graph &graph, int num_visited, int current_node, const int *node_visited, double *vars_values)
@@ -564,64 +425,70 @@ void fitness(t_mep_chromosome &individual, int code_length,
 	// we fill the "vars_values" array with this summarized information
 	// a function having vars_values as a parameter will be evolved
 
-	individual.fitness = 0;
+	individual.fitness = DBL_MAX;
+	for (int g = 0; g < code_length; g++) {
+		double error = 0;
+		for (int k = 0; k < num_training_graphs; k++) {
 
-	for (int k = 0; k < num_training_graphs; k++) {
+			// set the value of variables
+			vars_values[min_distance_in_matrix] = training_graphs[k].min_distance;
+			vars_values[max_distance_in_matrix] = training_graphs[k].max_distance;
+			vars_values[average_distance_in_matrix] = training_graphs[k].average_distance;
+			vars_values[num_total_nodes] = training_graphs[k].num_nodes;
 
-		// set the value of variables
-		vars_values[min_distance_in_matrix] = training_graphs[k].min_distance;
-		vars_values[max_distance_in_matrix] = training_graphs[k].max_distance;
-		vars_values[average_distance_in_matrix] = training_graphs[k].average_distance;
-		vars_values[num_total_nodes] = training_graphs[k].num_nodes;
+			// initialize memory for the path
+			int* tsp_path = new int[training_graphs[k].num_nodes];
+			int* node_visited = new int[training_graphs[k].num_nodes];
+			for (int i = 0; i < training_graphs[k].num_nodes; i++)
+				node_visited[i] = 0;
 
-		// initialize memory for the path
-		int *tsp_path = new int[training_graphs[k].num_nodes];
-		int *node_visited = new int[training_graphs[k].num_nodes];
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			node_visited[i] = 0;
-
-		// init path
-		int count_nodes = 0;
-		tsp_path[0] = 0; // first node in the path is 0;
-		node_visited[0] = 1;
-		count_nodes++;
-		double path_length = 0;
-
-		while (count_nodes < training_graphs[k].num_nodes) {
-			// fill the path node by node
-			double min_eval = DBL_MAX;
-			int best_node = -1;
-			// compute other statistics
-			vars_values[length_so_far] = path_length;
-			vars_values[num_visited_nodes] = count_nodes;
-			compute_local_variables(training_graphs[k], count_nodes, tsp_path[count_nodes - 1], node_visited, vars_values);
-
-			for (int nod = 0; nod < training_graphs[k].num_nodes; nod++)
-				// consider each unvisited node
-				if (!node_visited[nod]) {// not visited yet
-					vars_values[distance_to_next_node] = training_graphs[k].distance[tsp_path[count_nodes - 1]][nod];
-					double eval = evaluate(individual, code_length, vars_values, partial_values_array);
-					if (eval < min_eval) {
-						best_node = nod; // keep the one with minimal evaluation
-						min_eval = eval;
-					}
-				}
-			// add the best next node to the path
-			path_length += training_graphs[k].distance[tsp_path[count_nodes - 1]][best_node];
-			node_visited[best_node] = 1;
-
-			tsp_path[count_nodes] = best_node;
+			// init path
+			int count_nodes = 0;
+			tsp_path[0] = 0; // first node in the path is 0;
+			node_visited[0] = 1;
 			count_nodes++;
-		}
-		// connect the last with the first in the path
-		path_length += training_graphs[k].distance[tsp_path[count_nodes - 1]][tsp_path[0]];
-		individual.fitness += (path_length - training_graphs[k].optimal_length) / training_graphs[k].optimal_length * 100;
-		// keep it in percent from the optimal solution, otherwise we have scalling problems
+			double path_length = 0;
 
-		delete[] tsp_path;
-		delete[] node_visited;
+			while (count_nodes < training_graphs[k].num_nodes) {
+				// fill the path node by node
+				double min_eval = DBL_MAX;
+				int best_node = -1;
+				// compute other statistics
+				vars_values[length_so_far] = path_length;
+				vars_values[num_visited_nodes] = count_nodes;
+				compute_local_variables(training_graphs[k], count_nodes, tsp_path[count_nodes - 1], node_visited, vars_values);
+
+				for (int nod = 0; nod < training_graphs[k].num_nodes; nod++)
+					// consider each unvisited node
+					if (!node_visited[nod]) {// not visited yet
+						vars_values[distance_to_next_node] = training_graphs[k].distance[tsp_path[count_nodes - 1]][nod];
+						double eval = evaluate(individual, code_length, vars_values, partial_values_array, g);
+						if (eval < min_eval) {
+							best_node = nod; // keep the one with minimal evaluation
+							min_eval = eval;
+						}
+					}
+				// add the best next node to the path
+				path_length += training_graphs[k].distance[tsp_path[count_nodes - 1]][best_node];
+				node_visited[best_node] = 1;
+
+				tsp_path[count_nodes] = best_node;
+				count_nodes++;
+			}
+			// connect the last with the first in the path
+			path_length += training_graphs[k].distance[tsp_path[count_nodes - 1]][tsp_path[0]];
+			error += (path_length - training_graphs[k].optimal_length) / training_graphs[k].optimal_length * 100;
+			// keep it in percent from the optimal solution, otherwise we have scalling problems
+
+			delete[] tsp_path;
+			delete[] node_visited;
+		}
+		error /= (double)num_training_graphs; // average over the number of training graphs
+		if (individual.fitness > error) {
+			individual.fitness = error;
+			individual.best_index = g;
+		}
 	}
-	individual.fitness /= (double)num_training_graphs; // average over the number of training graphs
 }
 //-----------------------------------------------------------------
 
@@ -810,35 +677,15 @@ void start_steady_state(const t_mep_parameters &params,
 	delete[] vars_values;
 }
 //--------------------------------------------------------------------
-void compute_global_variables(t_graph *training_graphs, int num_training_graphs)
-{
-	// here we compute the min, max and average distance in a given graph
-	for (int k = 0; k < num_training_graphs; k++) {
-		training_graphs[k].max_distance = training_graphs[k].distance[0][1];
-		training_graphs[k].min_distance = training_graphs[k].distance[0][1];
-		training_graphs[k].average_distance = 0;
-		for (int i = 0; i < training_graphs[k].num_nodes; i++)
-			for (int j = 0; j < training_graphs[k].num_nodes; j++)
-				if (i != j) {
-					training_graphs[k].average_distance += training_graphs[k].distance[i][j];
-					if (training_graphs[k].max_distance < training_graphs[k].distance[i][j])
-						training_graphs[k].max_distance = training_graphs[k].distance[i][j];
-					if (training_graphs[k].min_distance > training_graphs[k].distance[i][j])
-						training_graphs[k].min_distance = training_graphs[k].distance[i][j];
-				}
-		training_graphs[k].average_distance /= (training_graphs[k].num_nodes * training_graphs[k].num_nodes) - training_graphs[k].num_nodes;
-	}
-}
-//--------------------------------------------------------------------
 
 int main(void)
 {
 	t_mep_parameters params;
-	params.num_sub_populations = 30;
-	params.sub_population_size = 100;			// the number of individuals in population  (must be an even number!)
+	params.num_sub_populations = 4;
+	params.sub_population_size = 250;			// the number of individuals in population  (must be an even number!)
 	params.code_length = 50;
-	params.num_generations = 100;				// the number of generations
-	params.mutation_probability = 0.01;          // mutation probability
+	params.num_generations = 200;				// the number of generations
+	params.mutation_probability = 0.1;          // mutation probability
 	params.crossover_probability = 0.9;         // crossover probability
 
 	params.variables_probability = 0.4;
@@ -849,7 +696,7 @@ int main(void)
 	params.constants_min = -1;
 	params.constants_max = 1;
 
-	params.num_threads = 30;
+	params.num_threads = 4;
 
 	t_graph *training_graphs = NULL;
 	int num_training_graphs = 0;
