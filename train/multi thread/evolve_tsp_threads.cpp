@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 //   Multi Expression Programming Software - with multiple subpopulations and threads
 //   Copyright Mihai Oltean  (mihai.oltean@gmail.com)
-//   Version 2022.01.25.0
+//   Version 2022.01.27.0
 
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -129,38 +129,6 @@ void delete_chromosome(t_mep_chromosome &c)
 	if (c.constants) {
 		delete[] c.constants;
 		c.constants = NULL;
-	}
-}
-//---------------------------------------------------------------------------
-void allocate_training_data(double **&data, double *&target, int num_training_data)
-{
-	target = new double[num_training_data];
-	data = new double*[num_training_data];
-	for (int i = 0; i < num_training_data; i++)
-		data[i] = new double[num_variables];
-}
-//---------------------------------------------------------------------------
-void allocate_partial_expression_values(double ***&expression_value, int num_training_data, int code_length, int num_threads)
-{
-	// partial values are stored in a matrix of size: code_length x num_training_data
-	// for each thread we have a separate matrix
-	expression_value = new double**[num_threads];
-	for (int t = 0; t < num_threads; t++) {
-		expression_value[t] = new double*[code_length];
-		for (int i = 0; i < code_length; i++)
-			expression_value[t][i] = new double[num_training_data];
-	}
-}
-//---------------------------------------------------------------------------
-void delete_partial_expression_values(double ***&expression_value, int code_length, int num_threads)
-{
-	if (expression_value) {
-		for (int t = 0; t < num_threads; t++) {
-			for (int i = 0; i < code_length; i++)
-				delete[] expression_value[t][i];
-			delete[] expression_value[t];
-		}
-		delete[] expression_value;
 	}
 }
 //---------------------------------------------------------------------------
@@ -611,36 +579,7 @@ void start_steady_state(const t_mep_parameters &params,
 	// we create a fixed number of threads and each thread will take and evolve one subpopulation, then it will take another one
 	std::mutex mutex;
 	// we need a mutex to make sure that the same subpopulation will not be evolved twice by different threads
-	/*
-	// initial population (generation 0)
-	unsigned int current_subpop_index = 0;
-	for (unsigned int t = 0; t < params.num_threads; t++)
-		mep_threads[t] = new std::thread(evolve_one_subpopulation, &current_subpop_index, &mutex, sub_populations, 0, params, training_graphs, num_training_graphs, vars_values[t], seeds);
 
-
-	for (unsigned int t = 0; t < params.num_threads; t++) {
-		mep_threads[t]->join(); // wait for all threads to execute
-		delete mep_threads[t];
-	}
-
-	// find the best individual from the entire population
-	int best_individual_subpop_index = 0; // the index of the subpopulation containing the best invidual
-	for (unsigned int p = 1; p < params.num_sub_populations; p++)
-		if (sub_populations[p][0].fitness < sub_populations[best_individual_subpop_index][0].fitness)
-			best_individual_subpop_index = p;
-
-	// compute average
-	double average_fitness = 0;
-	for (unsigned int p = 0; p < params.num_sub_populations; p++)
-		for (unsigned int i = 0; i < params.sub_population_size; i++)
-			average_fitness += sub_populations[p][i].fitness;
-
-	average_fitness /= (params.num_sub_populations * params.sub_population_size);
-
-	printf("generation %d, best fitness = %lf; average fitness = %lf\n", 0, sub_populations[best_individual_subpop_index][0].fitness, average_fitness);
-	fprintf(f_out, "%d %lf %lf", 0, sub_populations[best_individual_subpop_index][0].fitness, average_fitness);
-	print_chromosome_to_file(f_out, sub_populations[best_individual_subpop_index][0], params);
-	*/
 	unsigned int best_individual_subpop_index;
 	// evolve for a fixed number of generations
 	for (unsigned int generation = 0; generation < params.num_generations; generation++) { // for each generation
@@ -688,7 +627,7 @@ void start_steady_state(const t_mep_parameters &params,
 	delete[] seeds;
 	delete[] mep_threads;
 
-		// print best t_mep_chromosome
+	// print best t_mep_chromosome
 
 	print_mep_chromosome(sub_populations[best_individual_subpop_index][0], params);
 	// free memory
