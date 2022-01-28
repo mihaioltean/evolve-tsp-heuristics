@@ -1,8 +1,21 @@
 #include <stdio.h>
 #include <math.h>
+#include <float.h>
 #include <string.h>
 
 #include "graphs.h"
+#include "tsp_params.h"
+//---------------------------------------------------------------------------
+t_graph::t_graph()
+{
+	distance = NULL;
+	num_nodes = 0;
+}
+//---------------------------------------------------------------------------
+t_graph::~t_graph()
+{
+
+}
 //---------------------------------------------------------------------------
 bool read_training_data(const char* path, t_graph*& training_graphs, int& num_training_graphs)
 {
@@ -175,5 +188,24 @@ void compute_global_variables(t_graph* training_graphs, int num_training_graphs)
 				}
 		training_graphs[k].average_distance /= (training_graphs[k].num_nodes * training_graphs[k].num_nodes) - training_graphs[k].num_nodes;
 	}
+}
+//--------------------------------------------------------------------
+void t_graph::compute_local_variables(int num_visited, int current_node, const int* node_visited, double* vars_values) const
+{
+	vars_values[distance_to_nearest_node] = DBL_MAX; // min distance to unvisited
+	vars_values[distance_to_fartest_node] = 0;     // max_distance to unvisited
+	vars_values[average_distance_to_unvisited] = 0;  // average distance from current to all unvisited
+
+	for (int i = 0; i < num_nodes; i++)
+		if (!node_visited[i]) {
+			if (vars_values[distance_to_nearest_node] > distance[current_node][i])
+				vars_values[distance_to_nearest_node] = distance[current_node][i];
+			if (vars_values[distance_to_fartest_node] < distance[current_node][i])
+				vars_values[distance_to_fartest_node] = distance[current_node][i];
+
+			vars_values[average_distance_to_unvisited] += distance[current_node][i];
+		}
+
+	vars_values[average_distance_to_unvisited] /= (double)(num_nodes - num_visited);
 }
 //--------------------------------------------------------------------
